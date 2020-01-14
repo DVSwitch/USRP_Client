@@ -949,13 +949,14 @@ def makeAudioFrame( parent ):
     ttk.Scale(audioFrame, from_=0, to=100, orient=HORIZONTAL, variable=sp_vol,
               command=lambda x: cb(sp_vol)).grid(column=2, row=2, sticky=(W,E), pady=1)
 
-    whiteLabel(audioFrame, "Input").grid(column=1, row=3, sticky=W, padx = 5)
     devices = listAudioDevices(True)
-    invar = StringVar(root)
-    invar.set(devices[0]) # default value
-    inp = OptionMenu(audioFrame, invar, *devices)
-    inp.config(width=20)
-    inp.grid(column=2, row=3, sticky=W)
+    if len(devices) > 0:
+        whiteLabel(audioFrame, "Input").grid(column=1, row=3, sticky=W, padx = 5)
+        invar = StringVar(root)
+        invar.set(devices[0]) # default value
+        inp = OptionMenu(audioFrame, invar, *devices)
+        inp.config(width=20)
+        inp.grid(column=2, row=3, sticky=W)
 
     whiteLabel(audioFrame, "Output").grid(column=1, row=4, sticky=W, padx = 5)
     devices = listAudioDevices(False)
