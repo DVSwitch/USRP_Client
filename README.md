@@ -20,14 +20,19 @@ Install instructions by platform:
  
  pip install requests
  
+ Edit pyUC.ini
  
 - Linux
+
+Open a command prompt
 
 sudo apt-get install python3-pyaudio
 
 sudo apt-get install portaudio19-dev
 
 sudo apt-get install python3-pil.imagetk
+
+Edit pyUC.ini
 
 - Mac
 
@@ -41,3 +46,4 @@ pip3 install pyaudio
 
 pip3 install bs4 Pillow requests
 
+Edit pyUC.ini
