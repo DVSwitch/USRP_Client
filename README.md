@@ -24,7 +24,7 @@ Install instructions by platform:
  
     Edit pyUC.ini
  
-- Linux (Tested on a Raspberry Pi running Buster)
+- Linux (Tested on a Raspberry Pi running Buster and Linux Mint 19)
 
     Open a command prompt
 
