@@ -32,5 +32,5 @@ brew install portaudio
 
 pip3 install pyaudio
 
-pip3 bs4 Pillow requests
+pip3 install bs4 Pillow requests
 
