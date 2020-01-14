@@ -23,6 +23,7 @@ sudo apt-get install portaudio19-dev
 sudo apt-get install python3-pil.imagetk
 
 - Mac
+
 ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
 
 brew install python
