@@ -1,12 +1,14 @@
 # USRP_Client (pyUC)
 
+Download and unzip https://github.com/DVSwitch/USRP_Client/archive/master.zip
+
 Install instructions by platform:
 
 - Windows 10
 
- Use Python 3.7 from the Microsoft Store
+Use Python 3.7 from the Microsoft Store
  
- Open a command prompt
+Open a command prompt
  
  python -m pip install --upgrade pip
  
