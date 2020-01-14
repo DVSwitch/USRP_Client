@@ -3,20 +3,31 @@ Install instructions by platform
 - Windows 10
  Use Python 3.7
  python -m pip install --upgrade pip
+ 
  pip install PyAudio-0.2.11-cp37-cp37m-win_amd64.whl
+ 
  pip install bs4
+ 
  pip install Pillow
+ 
  pip install requests
+ 
  
 - Linux
 sudo apt-get install python3-pyaudio
+
 sudo apt-get install portaudio19-dev
+
 sudo apt-get install python3-pil.imagetk
 
 - Mac
 ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+
 brew install python
+
 brew install portaudio
+
 pip3 install pyaudio
+
 pip3 bs4 Pillow requests
 
