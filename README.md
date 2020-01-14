@@ -16,6 +16,7 @@ Install instructions by platform
  
  
 - Linux
+
 sudo apt-get install python3-pyaudio
 
 sudo apt-get install portaudio19-dev
