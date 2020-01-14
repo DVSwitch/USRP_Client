@@ -1,6 +1,8 @@
 # USRP_Client (pyUC)
+
 Install instructions by platform
 - Windows 10
+
  Use Python 3.7
  python -m pip install --upgrade pip
  
