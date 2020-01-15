@@ -20,7 +20,7 @@ Install instructions by platform:
 - Windows 10
 
     Use Python 3.7 from the Microsoft Store
-    Open a command prompt
+    Open a command prompt  
     **python -m pip install --upgrade pip**  
     Download PyAudio from https://www.lfd.uci.edu/~gohlke/pythonlibs/ for your version (32 or 64 bit)
  
