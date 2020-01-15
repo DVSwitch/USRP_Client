@@ -48,7 +48,7 @@ Install instructions by platform:
     Edit pyUC.ini
 
 ## Contributing
-We encourage others of submit pull request tp this repository.  We only ask that you submit the pull request on the development branch.  Your pull will be reviewed and merged into the master branch.
+We encourage others of submit pull request to this repository.  We only ask that you submit the pull request on the development branch.  Your pull will be reviewed and merged into the master branch.
 ## Related projects
 DVSwitch
 ## Licensing
