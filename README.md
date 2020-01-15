@@ -19,7 +19,7 @@ Install instructions by platform:
 
 - Windows 10
 
-    Use Python 3.7 from the Microsoft Store
+    Use Python 3.7 from the Microsoft Store  
     Open a command prompt  
     **python -m pip install --upgrade pip**  
     Download PyAudio from https://www.lfd.uci.edu/~gohlke/pythonlibs/ for your version (32 or 64 bit)
@@ -29,6 +29,9 @@ Install instructions by platform:
     pip install Pillow  
     pip install requests**  
     Edit pyUC.ini
+    
+    If you get an error about MSVCP140.DLL, then you will need to install the MSVC C++ runtime library.  
+    Get it from: https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads  
  
 - Linux (Tested on a Raspberry Pi running Buster and Linux Mint 19)
 
