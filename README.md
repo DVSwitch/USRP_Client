@@ -13,7 +13,7 @@ The user can:
  - See pictures of the hams from QRZ.com
 
 ## Installation
-Download and unzip https://github.com/DVSwitch/USRP_Client/archive/master.zip
+Download and unzip https://github.com/afranco8/USRP_Client/archive/master.zip
 
 Install instructions by platform:
 
