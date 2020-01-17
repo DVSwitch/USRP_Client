@@ -1029,7 +1029,7 @@ def makeLogFrame( parent ):
     logList = ttk.Treeview(logFrame)
     logList.grid(column=1, row=2, sticky=W, columnspan=5)
     
-    cols = ('Date', 'Time', 'Call', 'Name' 'Slot', 'TG', 'Loss', 'Duration')
+    cols = ('Date', 'Time', 'Call', 'Name', 'Slot', 'TG', 'Loss', 'Duration')
     widths = [85, 85, 85, 80, 55, 150, 70, 95]
     logList.config(columns=cols)
     logList.column("#0", width=1 )
