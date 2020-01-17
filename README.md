@@ -36,10 +36,7 @@ Install instructions by platform:
     
     If you get an error about MSVCP140.DLL, then you will need to install the MSVC C++ runtime library.  
     Get it from: https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads 
-   
- ## First Run
- After changing the pyUC.ini settings with you details, click on Settings -> Update BD and wait to download the User database so you cann see the operator names in the log.
- Thats the only change from the authors original script.
+ 
 
 - Linux (Tested on a Raspberry Pi running Buster and Linux Mint 19)
 
@@ -57,6 +54,10 @@ Install instructions by platform:
     pip3 install pyaudio  
     pip3 install bs4 Pillow requests**  
     Edit pyUC.ini
+    
+## First Run
+After changing the pyUC.ini settings with you details, click on Settings -> Update BD and wait to download the User database so you cann see the operator names in the log.
+Thats the only change from the authors original script.
 
 ## Contributing
 We encourage others to submit pull request to this repository.  We only ask that you submit the pull request on the development branch.  Your pull will be reviewed and merged into the master branch.
