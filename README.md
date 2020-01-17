@@ -18,7 +18,7 @@ Download and unzip https://github.com/DVSwitch/USRP_Client/archive/master.zip
 Install instructions by platform:
 
 - Windows 10
-
+    ## Method 1
     Use Python 3.7 from the Microsoft Store  
     Open a command prompt  
     **python -m pip install --upgrade pip**  
@@ -30,10 +30,13 @@ Install instructions by platform:
     pip install requests**  
     Edit pyUC.ini
     
+     ## Method 2
+    Using Download.bat file to download and install all required libs for USRP Client use. Tested on Windows 10 64
+    
+    
     If you get an error about MSVCP140.DLL, then you will need to install the MSVC C++ runtime library.  
     Get it from: https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads 
-    
-    - Added Download.bat file to download and install all required libs for USRP Client use. Tested on Windows 10 64
+   
  
 - Linux (Tested on a Raspberry Pi running Buster and Linux Mint 19)
 
