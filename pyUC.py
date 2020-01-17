@@ -386,7 +386,7 @@ def rxAudioStream():
                         bdfolder = pathlib.Path(__file__).parent
                         with open(bdfolder/'users.json') as json_data:
                             data3 = json.load(json_data)
-                            nome = ''   
+                        nome = ''   
                         for y in data3['users']:
                             if call in y['callsign']:
                                 nome = str(y['name'])
