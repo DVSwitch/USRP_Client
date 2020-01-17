@@ -17,6 +17,7 @@ CALL :DOWNLOAD_FILE "%FILE_URL%" "%SAVING_TO%"
     bitsadmin /transfer Download /download /priority normal %1 %2
 
 cd !folder!
+python -m pip install --upgrade pip
 pip install PyAudio-0.2.11-cp37-cp37m-win_amd64.whl
 pip install bs4
 pip install Pillow
