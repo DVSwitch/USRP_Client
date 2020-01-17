@@ -315,7 +315,7 @@ def rxAudioStream():
                     if keyup:
                         start_time = time()
                     if keyup == False:
-                        logging.info('End TX:   {} {} {} {} {:.2f}s'.format(call, , nome, rxslot, tg, loss, time() - start_time))
+                        logging.info('End TX:   {} {} {} {} {:.2f}s'.format(call, nome, rxslot, tg, loss, time() - start_time))
                         logList.see(logList.insert('', 'end', None, values=(
                                                                             strftime(" %m/%d/%y", localtime(start_time)),
                                                                             strftime("%H:%M:%S", localtime(start_time)),
