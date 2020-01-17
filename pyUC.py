@@ -381,8 +381,15 @@ def rxAudioStream():
                         for item in talk_groups[listName]:
                             if item[1] == str(tg):
                                 tg = item[0]    # Found the TG number in the list, so we can use its friendly name
-                        current_tx_value.set('{} -> {}'.format(call, tg))
-                        logging.info('Begin TX: {} {} {} {}'.format(call, rxslot, tg, mode))
+                        bdfolder = pathlib.Path(__file__).parent
+                        with open(bdfolder/'users.json') as json_data:
+                            data3 = json.load(json_data)
+                            nome = ''   
+                        for y in data3['users']:
+                            if call in y['callsign']:
+                                nome = str(y['name'])
+                        current_tx_value.set('RX: {} {} -> {}'.format(nome, call, tg))   
+                        logging.info('Begin TX: {} {} {} {} {}'.format(call, nome, rxslot, tg, mode))
                         transmit_enable = False # Transmission from network will disable local transmit
                         if call.isdigit() == False:
                             html_queue.put(call)
@@ -823,6 +830,12 @@ def getValuesFromServer():
     dongle_mode.set(1)                   #dongle mode enable
     mic_vol.set(50)                      #microphone level
     sp_vol.set(50)                       #speaker level
+    
+    def updatedb():
+    bdfolder = pathlib.Path(__file__).parent
+    url = 'https://ham-digital.org/status/users.json'
+    urllib.request.urlretrieve(url, bdfolder/'users.json')
+    messagebox.showinfo("Database Update", "Update complete!")
 
 ###################################################################################
 # Update server data state to match GUI values
@@ -935,6 +948,7 @@ def makeModeFrame( parent ):
     modeFrame = LabelFrame(parent, text = "Server", pady = 5, padx = 5, bg = "white", bd = 1, relief = SUNKEN)
     ttk.Button(modeFrame, text="Read", command=getValuesFromServer).grid(column=1, row=1, sticky=W)
     ttk.Button(modeFrame, text="Write", command=sendValuesToServer).grid(column=1, row=2, sticky=W)
+    ttk.Button(modeFrame, text="Update DB", command=updatedb).grid(column=1, row=3, sticky=W)
     return modeFrame
 
 ###################################################################################
@@ -1015,8 +1029,8 @@ def makeLogFrame( parent ):
     logList = ttk.Treeview(logFrame)
     logList.grid(column=1, row=2, sticky=W, columnspan=5)
     
-    cols = ('Date', 'Time', 'Call', 'Slot', 'TG', 'Loss', 'Duration')
-    widths = [85, 85, 80, 55, 150, 70, 95]
+    cols = ('Date', 'Time', 'Call', 'Name' 'Slot', 'TG', 'Loss', 'Duration')
+    widths = [85, 85, 85, 80, 55, 150, 70, 95]
     logList.config(columns=cols)
     logList.column("#0", width=1 )
     i = 0
@@ -1169,7 +1183,7 @@ def update_clock(obj):
 #
 ###################################################################################
 def makeStatusBar( parent ):
-    w = 22
+    w = 32
     statusBar = Frame(parent, pady = 5, padx = 5)
     Label(statusBar, textvariable=connected_msg, anchor=W, width = w).grid(column=1, row=1, sticky=W)
     Label(statusBar, textvariable=current_tx_value, anchor=CENTER, width = w).grid(column=2, row=1, sticky=N)
