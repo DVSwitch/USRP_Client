@@ -31,7 +31,9 @@ Install instructions by platform:
     Edit pyUC.ini
     
     If you get an error about MSVCP140.DLL, then you will need to install the MSVC C++ runtime library.  
-    Get it from: https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads  
+    Get it from: https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads 
+    
+    - Added Download.bat file to download and install all required libs for USRP Client use. Tested on Windows 10 64
  
 - Linux (Tested on a Raspberry Pi running Buster and Linux Mint 19)
 
