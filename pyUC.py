@@ -35,6 +35,8 @@ import logging
 import webbrowser
 import os
 import io
+import urllib
+import pathlib
 import base64
 import urllib.request
 import queue
@@ -313,7 +315,7 @@ def rxAudioStream():
                     if keyup:
                         start_time = time()
                     if keyup == False:
-                        logging.info('End TX:   {} {} {} {} {:.2f}s'.format(call, rxslot, tg, loss, time() - start_time))
+                        logging.info('End TX:   {} {} {} {} {:.2f}s'.format(call, , nome, rxslot, tg, loss, time() - start_time))
                         logList.see(logList.insert('', 'end', None, values=(
                                                                             strftime(" %m/%d/%y", localtime(start_time)),
                                                                             strftime("%H:%M:%S", localtime(start_time)),
@@ -831,7 +833,7 @@ def getValuesFromServer():
     mic_vol.set(50)                      #microphone level
     sp_vol.set(50)                       #speaker level
     
-    def updatedb():
+def updatedb():
     bdfolder = pathlib.Path(__file__).parent
     url = 'https://ham-digital.org/status/users.json'
     urllib.request.urlretrieve(url, bdfolder/'users.json')
