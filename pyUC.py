@@ -284,6 +284,7 @@ def rxAudioStream():
     start_time = time()
     call = ''
     tg = ''
+    nome = ''
     loss = '0.00%'
     rxslot = '0'
     state = None
