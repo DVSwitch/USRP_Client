@@ -39,8 +39,9 @@ import base64
 import urllib.request
 import queue
 from pathlib import Path
+import hashlib
 
-UC_VERSION = "1.1.0"
+UC_VERSION = "1.2.0"
 
 ###################################################################################
 # Declare input and output ports for communication with AB
@@ -97,6 +98,63 @@ transmit_enable = True              # Make sure that UC is half duplex
 listbox = None                      # tk object (talkgroup)
 transmitButton = None               # tk object
 logList = None                      # tk object
+macros = []
+
+###################################################################################
+# Strings
+###################################################################################
+STRING_USRP_CLIENT = "USRP Client"
+STRING_FATAL_ERROR = "fatal error, python package not found: "
+STRING_TALKGROUP = "Talk Group"
+STRING_OK = "OK"
+STRING_REGISTERED =  "Registered"
+STRING_WINDOWS_PORT_REUSE = "On Windows, ignore the port reuse"
+STRING_FATAL_OUTPUT_STREAM = "fatal error, can not open output audio stream"
+STRING_OUTPUT_STREAM_ERROR = "Output stream  open error"
+STRING_FATAL_INPUT_STREAM = "fatal error, can not open input audio stream"
+STRING_INPUT_STREAM_ERROR = "Input stream  open error"
+STRING_CONNECTION_FAILURE = "Connection failure"
+STRING_SOCKET_FAILURE = "Socket failure"
+STRING_CONNECTED_TO = "Connected to"
+STRING_DISCONNECTED = "Disconnected "
+STRING_SERVER = "Server"
+STRING_READ = "Read"
+STRING_WRITE = "Write"
+STRING_AUDIO = "Audio"
+STRING_MIC = "Mic"
+STRING_SPEAKER = "Speaker"
+STRING_INPUT = "Input"
+STRING_OUTPUT = "Output"
+STRING_TALKGROUPS = "Talk Groups"
+STRING_TG = "TG"
+STRING_TS = "TS"
+STRING_CONNECT = "Connect"
+STRING_DISCONNECT = "Disconnect"
+STRING_DATE = "Date"
+STRING_TIME = "Time"
+STRING_CALL = "Call"
+STRING_SLOT = "Slot"
+STRING_LOSS = "Loss"
+STRING_DURATION = "Duration"
+STRING_MODE = "MODE"
+STRING_REPEATER_ID = "Repeater ID"
+STRING_SUBSCRIBER_ID = "Subscriber ID"
+STRING_TAB_MAIN = "Main"
+STRING_TAB_SETTINGS = "Settings"
+STRING_TAB_ABOUT = "About"
+STRING_CONFIG_NOT_EDITED = 'Please edit the configuration file and set it up correctly. Exiting...'
+STRING_CONFIG_FILE_ERROR = "Config (ini) file error: "
+STRING_EXITING = "Exiting pyUC..."
+STRING_VOX = "Vox"
+STRING_DONGLE_MODE = "Dongle Mode"
+STRING_VOX_ENABLE = "Vox Enable"
+STRING_VOX_THRESHOLD = "Threshold"
+STRING_VOX_DELAY = "Delay"
+STRING_NETWORK = "Network"
+STRING_LOOPBACK = "Loopback"
+STRING_IP_ADDRESS = "IP Address"
+STRING_PRIVATE = "Private"
+STRING_GROUP = "Group"
 
 ###################################################################################
 # HTML/QRZ import libraries
@@ -106,7 +164,7 @@ try:
     from PIL import Image, ImageTk
     import requests
 except:
-    print("fatal error, python package not found: " + str(sys.exc_info()[1]))
+    print(STRING_FATAL_ERROR + str(sys.exc_info()[1]))
     exit(1)
 
 qrz_label = None
@@ -132,15 +190,15 @@ def getImgUrl( callsign ):
     if callsign in qrz_cache:
         return qrz_cache[callsign]['url']
 
-    # specify the url
-    quote_page = 'https://qrz.com/lookup/' + callsign
-
-    # query the website and return the html to the variable ‘page’
-    page = urlopen(quote_page).read()
-
-    # parse the html using beautiful soup and store in variable `soup`
-    soup = BeautifulSoup(page, 'html.parser')
     try:
+        # specify the url
+        quote_page = 'https://qrz.com/lookup/' + callsign
+
+        # query the website and return the html to the variable ‘page’
+        page = urlopen(quote_page).read()
+
+        # parse the html using beautiful soup and store in variable `soup`
+        soup = BeautifulSoup(page, 'html.parser')
         img = soup.find(id='mypic')['src']
     except:
         pass
@@ -156,9 +214,12 @@ def getQRZImage( callsign ):
             if 'image' in qrz_cache[callsign]:
                 return qrz_cache[callsign]['image']
             resp = requests.get(image_url, stream=True).raw
-            image = Image.open(resp)
-            image.thumbnail((170,110), Image.LANCZOS)
-            photo = ImageTk.PhotoImage(image)
+            try:
+                image = Image.open(resp)
+                image.thumbnail((170,110), Image.LANCZOS)
+                photo = ImageTk.PhotoImage(image)
+            except:
+                pass
             qrz_cache[callsign]['image'] = photo
     return photo
 
@@ -183,15 +244,21 @@ logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.INFO)
 class MyDialog:
     
     def __init__(self, parent):
-        
+
+        win_offset = "250x100+{}+{}".format(root.winfo_x()+40, root.winfo_y()+65)
+
         top = self.top = Toplevel(parent)
+        top.geometry(win_offset)
+
+        Label(top, text=STRING_TALKGROUP).pack()
         
-        Label(top, text="Talk Group").pack()
-        
-        self.e = Entry(top)
+        if len(macros) == 0:
+            self.e = Entry(top)
+        else:
+            self.e = ttk.Combobox(top, values=macros)
         self.e.pack(padx=5)
         
-        b = Button(top, text="OK", command=self.ok)
+        b = Button(top, text=STRING_OK, command=self.ok)
         b.pack(pady=5)
     
     def ok(self):
@@ -200,7 +267,13 @@ class MyDialog:
         item = self.e.get()
         if len(item):
             mode = master.get()
-            talk_groups[mode].append((item, item))
+            lst = item.split(',')
+            if len(lst) == 1:
+                connect((item, item))
+                #talk_groups[mode].append((item, item))
+            else:
+                connect((lst[0].strip(), lst[1].strip()))
+                #talk_groups[mode].append((lst[1].strip(), lst[0].strip()))
             fillTalkgroupList(master.get())
         self.top.destroy()
 
@@ -216,7 +289,7 @@ def openStream():
     try:
         udp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
     except:
-        logging.info("On Windows, ignore the port reuse")
+        logging.info(STRING_WINDOWS_PORT_REUSE)
         pass
     udp.bind(('', usrp_rx_port))
 
@@ -249,6 +322,8 @@ def rxAudioStream():
     global noTrace
     global regState
     global transmit_enable
+    global macros
+
     logging.info('Start rx audio thread')
     USRP = bytes("USRP", 'ASCII')
     REG = bytes("REG:", 'ASCII')
@@ -271,8 +346,8 @@ def rxAudioStream():
                         output_device_index=out_index
                         )
     except:
-        logging.critical("fatal error, can not open output audio stream" + str(sys.exc_info()[1]))
-        messagebox.showinfo("USRP Client", "Output stream  open error")
+        logging.critical(STRING_FATAL_OUTPUT_STREAM + str(sys.exc_info()[1]))
+        messagebox.showinfo(STRING_USRP_CLIENT, STRING_OUTPUT_STREAM_ERROR)
         os._exit(1)
 
     _i = p.get_default_output_device_info().get('index') if out_index == None else out_index
@@ -281,6 +356,7 @@ def rxAudioStream():
     lastKey = -1
     start_time = time()
     call = ''
+    name = ''
     tg = ''
     loss = '0.00%'
     rxslot = '0'
@@ -320,13 +396,13 @@ def rxAudioStream():
                                                                             call.ljust(10), rxslot, tg, loss, '{:.2f}s'.format(time() - start_time))))
                         root.after(1000, logList.yview_moveto, 1)
                         current_tx_value.set(my_call)
-                        ipc_queue.put(empty_photo)
+                        html_queue.put("")  # clear the photo, use queue for short transmissions
                         transmit_enable = True  # Idle state, allow local transmit
                 lastKey = keyup
             elif (type == USRP_TYPE_TEXT): #metadata
                 if (audio[0:4] == REG):
                     if (audio[4:6] == OK):
-                        connected_msg.set( "Registered" )
+                        connected_msg.set(STRING_REGISTERED)
                         requestInfo()
                         if in_index == -1:
                             transmitButton.configure(state='disabled')
@@ -340,7 +416,7 @@ def rxAudioStream():
                         pass
                     elif (audio[4:11] == EXITING):
                         disconnect()
-                        tmp = audio[:audio.find('\x00')] # C string
+                        tmp = audio[:audio.find(b'\x00')].decode('ASCII') # C string
                         args = tmp.split(" ")
                         sleepTime = int(args[2])
                         logging.info("AB is exiting and wants a re-reg in %s seconds...", sleepTime)
@@ -353,8 +429,11 @@ def rxAudioStream():
                     if (_json[0:4] == "MSG:"):
                         logging.info("Text Message: " + _json[4:])
                         ipc_queue.put(("toast", "Text Message", _json[4:]))
-                    elif (_json[0:6] == "MACRO:"):  # Ignore macros for now.
-                        pass
+                    elif (_json[0:6] == "MACRO:"):  # An ad-hoc macro menu
+                        logging.info("Macro: " + _json[6:])
+                        macs = _json[6:]
+                        macros = macs.split('|')
+                        ipc_queue.put(("macro", ""))    # popup the menu
                     else:
                         obj=json.loads(audio[5:audio.find(b'\x00')].decode('ASCII'))
                         noTrace = True  # ignore the event generated by setting the combo box
@@ -364,7 +443,7 @@ def rxAudioStream():
                             master.set(obj["tlv"]["ambe_mode"])
                         noTrace = False
                         logging.info(audio[:audio.find(b'\x00')].decode('ASCII'))
-                        connected_msg.set( "Connected to " + obj["last_tune"] )
+                        connected_msg.set( STRING_CONNECTED_TO + " " + obj["last_tune"] )
                         selectTGByValue(obj["last_tune"])
                 else:
                     if audio[0] == TLV_TAG_SET_INFO:
@@ -372,16 +451,20 @@ def rxAudioStream():
                         tg = (audio[9] << 16) + (audio[10] << 8) + audio[11] # Dest
                         rxslot = audio[12]
                         rxcc = audio[13]
-                        mode = "Private" if (rxcc  & 0x80) else "Group"
+                        mode = STRING_PRIVATE if (rxcc  & 0x80) else STRING_GROUP
                         if audio[14] == 0: # C string termintor for call
                             call = str(rid)
                         else:
                             call = audio[14:audio.find(b'\x00', 14)].decode('ASCII')
+                            if call[0] == '{':    # its a json dict
+                                obj=json.loads(call)
+                                call = obj['call']
+                                name = ' '+obj['name'].split(' ')[0] if 'name' in obj else ""
                         listName = master.get()
                         for item in talk_groups[listName]:
                             if item[1] == str(tg):
                                 tg = item[0]    # Found the TG number in the list, so we can use its friendly name
-                        current_tx_value.set('{} -> {}'.format(call, tg))
+                        current_tx_value.set('{}{} -> {}'.format(call, name, tg))
                         logging.info('Begin TX: {} {} {} {}'.format(call, rxslot, tg, mode))
                         transmit_enable = False # Transmission from network will disable local transmit
                         if call.isdigit() == False:
@@ -399,7 +482,39 @@ def rxAudioStream():
             elif (type == USRP_TYPE_PING):
 #                logging.debug(audio[:audio.find('\x00')])
                 pass
-    
+            elif (type == USRP_TYPE_TLV):
+                tag = audio[0]
+                length = audio[1]
+                value = audio[2:]    
+                if tag == TLV_TAG_FILE_XFER:
+                    FILE_SUBCOMMAND_NAME = 0
+                    FILE_SUBCOMMAND_PAYLOAD = 1
+                    FILE_SUBCOMMAND_WRITE = 2
+                    FILE_SUBCOMMAND_READ = 3
+                    FILE_SUBCOMMAND_ERROR = 4
+                    if value[0] == FILE_SUBCOMMAND_NAME:
+                        file_len = (value[1] << 24) + (value[2] << 16) + (value[3] << 8) + value[4]
+                        file_name = value[5:]
+                        zero = file_name.find(0)
+                        file_name = file_name[:zero].decode('ASCII')
+                        logging.info("File transfer name: " + file_name)
+                        m = hashlib.md5()
+                    if value[0] == FILE_SUBCOMMAND_PAYLOAD:
+                        logging.debug("payload len = " + str(length-1))
+                        payload = value[1:length]
+                        m.update(payload)
+                        #logging.debug(payload.hex())
+                        #logging.debug(payload)
+                    if value[0] == FILE_SUBCOMMAND_WRITE:
+                        digest = m.digest().hex().upper()
+                        file_md5 = value[1:33].decode('ASCII')
+                        if (digest == file_md5):
+                            logging.info("File digest matches")
+                        else:
+                            logging.info("File digest does not match {} vs {}".format(digest, file_md5))
+                        #logging.info("write (md5): " + value[1:33].hex())
+                    if value[0] == FILE_SUBCOMMAND_ERROR:
+                        logging.info("error")
         else:
 #            logging.info(soundData, len(soundData))
             pass
@@ -428,8 +543,8 @@ def txAudioStream():
                         input_device_index=in_index
                         )
     except:
-        logging.critical("fatal error, can not open input audio stream" + str(sys.exc_info()[1]))
-        messagebox.showinfo("USRP Client", "Input stream  open error")
+        logging.critical(STRING_FATAL_INPUT_STREAM + str(sys.exc_info()[1]))
+        messagebox.showinfo(STRING_USRP_CLIENT, STRING_INPUT_STREAM_ERROR)
         os._exit(1)
 
     _i = p.get_default_output_device_info().get('index') if in_index == None else in_index
@@ -506,8 +621,8 @@ def listAudioDevices(want_input):
 # Catch and display any socket errors
 ###################################################################################
 def socketFailure():
-    connected_msg.set( "Connection failure" )
-    logging.error("Socket failure")
+    connected_msg.set( STRING_CONNECTION_FAILURE )
+    logging.error(STRING_SOCKET_FAILURE)
 
 ###################################################################################
 # Send command to AB
@@ -611,7 +726,7 @@ def setRemoteTG( tg ):
             comma = ","
         sendRemoteControlCommandASCII(tgs)
         sendRemoteControlCommandASCII("txTg=0")
-        connected_msg.set( "Connected to ")
+        connected_msg.set(STRING_CONNECTED_TO)
         transmitButton.configure(state='disabled')
     else :
         sendRemoteControlCommandASCII("tgs=" + str(tg))
@@ -721,22 +836,28 @@ def getCurrentTGName():
 ###################################################################################
 # Connect to a specific set of TS/TG values
 ###################################################################################
-def connect():
+def connect(tup):
     if regState == False:
         start()
-    tg = getCurrentTG()
-    connected_msg.set( "Connected to " + getCurrentTGName() )
-#    transmitButton.configure(state='normal')
+    if tup != None:
+        tg = tup[0]
+        tg_name = tup[1]
+    else:
+        tg = getCurrentTG()
+        tg_name = getCurrentTGName()
+    if tg.startswith('*') == False:     # If it is not a macro, do a full dial sequence
+        connected_msg.set( STRING_CONNECTED_TO + " " + tg_name )
+#       transmitButton.configure(state='normal')
     
-    setRemoteNetwork(master.get())
-    setRemoteTS(slot.get())
-    setRemoteTG(tg)
+        setRemoteNetwork(master.get())
+        setRemoteTS(slot.get())
+    setRemoteTG(tg)     # set the TG (or a macro command)
 
 ###################################################################################
 # Mute all TS/TGs
 ###################################################################################
 def disconnect():
-    connected_msg.set( "Disconnected ")
+    connected_msg.set(STRING_DISCONNECTED)
 #    transmitButton.configure(state='disabled')
 
 ###################################################################################
@@ -771,7 +892,9 @@ def process_queue():
         if msg[0] == "toast":   # a toast is a tupple of title and text
             popup_toast(msg)
         if msg[0] == "photo":    # an image is just a string containing the call to display
-            showQRZImage(msg, qrz_label)        
+            showQRZImage(msg, qrz_label) 
+        if msg[0] == "macro":
+            tgDialog();       
     except queue.Empty:
         pass
     root.after(100, process_queue)
@@ -816,7 +939,7 @@ def getValuesFromServer():
     #   subscriber_id.set(3113043)           #DMR Subscriber radio ID
     slot.set(2)                         #current slot
     listbox.selection_set(0)            #current TG
-    connected_msg.set("Connected to")    #current TG
+    connected_msg.set(STRING_CONNECTED_TO)    #current TG
     
     # get values from Analog_Bridge (vox enable, delay and threshold) (not yet: sp level, mic level, audio devices)
     getVoxData()                        #vox enable, delay and threshold
@@ -906,7 +1029,7 @@ def masterChanged(*args):
 # Callback when a button is pressed
 ###################################################################################
 def buttonPress(*args):
-    messagebox.showinfo("USRP Client", "This is just a prototype")
+    messagebox.showinfo(STRING_USRP_CLIENT, "This is just a prototype")
 
 ###################################################################################
 # Used for debug
@@ -932,18 +1055,18 @@ def tgDialog():
 # 
 ###################################################################################
 def makeModeFrame( parent ):
-    modeFrame = LabelFrame(parent, text = "Server", pady = 5, padx = 5, bg = "white", bd = 1, relief = SUNKEN)
-    ttk.Button(modeFrame, text="Read", command=getValuesFromServer).grid(column=1, row=1, sticky=W)
-    ttk.Button(modeFrame, text="Write", command=sendValuesToServer).grid(column=1, row=2, sticky=W)
+    modeFrame = LabelFrame(parent, text = STRING_SERVER, pady = 5, padx = 5, bg = "white", bd = 1, relief = SUNKEN)
+    ttk.Button(modeFrame, text=STRING_READ, command=getValuesFromServer).grid(column=1, row=1, sticky=W)
+    ttk.Button(modeFrame, text=STRING_WRITE, command=sendValuesToServer).grid(column=1, row=2, sticky=W)
     return modeFrame
 
 ###################################################################################
 #
 ###################################################################################
 def makeAudioFrame( parent ):
-    audioFrame = LabelFrame(parent, text = "Audio", pady = 5, padx = 5, bg = "white", bd = 1, relief = SUNKEN)
-    whiteLabel(audioFrame, "Mic").grid(column=1, row=1, sticky=W, padx = 5, pady=1)
-    whiteLabel(audioFrame, "Speaker").grid(column=1, row=2, sticky=W, padx = 5, pady=1)
+    audioFrame = LabelFrame(parent, text = STRING_AUDIO, pady = 5, padx = 5, bg = "white", bd = 1, relief = SUNKEN)
+    whiteLabel(audioFrame, STRING_MIC).grid(column=1, row=1, sticky=W, padx = 5, pady=1)
+    whiteLabel(audioFrame, STRING_SPEAKER).grid(column=1, row=2, sticky=W, padx = 5, pady=1)
     ttk.Scale(audioFrame, from_=0, to=100, orient=HORIZONTAL, variable=mic_vol,
               command=lambda x: cb(mic_vol)).grid(column=2, row=1, sticky=(W,E), pady=1)
     ttk.Scale(audioFrame, from_=0, to=100, orient=HORIZONTAL, variable=sp_vol,
@@ -951,14 +1074,14 @@ def makeAudioFrame( parent ):
 
     devices = listAudioDevices(True)
     if len(devices) > 0:
-        whiteLabel(audioFrame, "Input").grid(column=1, row=3, sticky=W, padx = 5)
+        whiteLabel(audioFrame, STRING_INPUT).grid(column=1, row=3, sticky=W, padx = 5)
         invar = StringVar(root)
         invar.set(devices[0]) # default value
         inp = OptionMenu(audioFrame, invar, *devices)
         inp.config(width=20)
         inp.grid(column=2, row=3, sticky=W)
 
-    whiteLabel(audioFrame, "Output").grid(column=1, row=4, sticky=W, padx = 5)
+    whiteLabel(audioFrame, STRING_OUTPUT).grid(column=1, row=4, sticky=W, padx = 5)
     devices = listAudioDevices(False)
     outvar = StringVar(root)
     outvar.set(devices[0]) # default value
@@ -982,10 +1105,10 @@ def fillTalkgroupList( listName ):
 ###################################################################################
 def makeGroupFrame( parent ):
     global listbox
-    dmrFrame = LabelFrame(parent, text = "Talk Groups", pady = 5, padx = 5, bg = "white", bd = 1, relief = SUNKEN)
-    whiteLabel(dmrFrame, "TS").grid(column=1, row=1, sticky=W, padx = 5)
+    dmrFrame = LabelFrame(parent, text = STRING_TALKGROUPS, pady = 5, padx = 5, bg = "white", bd = 1, relief = SUNKEN)
+    whiteLabel(dmrFrame, STRING_TS).grid(column=1, row=1, sticky=W, padx = 5)
     Spinbox(dmrFrame, from_=1, to=2, width = 5, textvariable = slot).grid(column=2, row=1, sticky=W)
-    whiteLabel(dmrFrame, "TG").grid(column=1, row=2, sticky=(N, W), padx = 5)
+    whiteLabel(dmrFrame, STRING_TG).grid(column=1, row=2, sticky=(N, W), padx = 5)
 
     listFrame = Frame(dmrFrame, bd=1, highlightbackground="black", highlightcolor="black", highlightthickness=1)
     listFrame.grid(column=2, row=2, sticky=W, columnspan=2)
@@ -999,9 +1122,9 @@ def makeGroupFrame( parent ):
     listbox.config(yscrollcommand=scrollbar.set)
 
     fillTalkgroupList(defaultServer)
-    ttk.Button(dmrFrame, text="TG", command=tgDialog, width = 3).grid(column=1, row=3, sticky=W)
-    ttk.Button(dmrFrame, text="Connect", command=connect).grid(column=2, row=3, sticky=W)
-    ttk.Button(dmrFrame, text="Disconnect", command=disconnectButton).grid(column=3, row=3, sticky=W)
+    ttk.Button(dmrFrame, text=STRING_TG, command=tgDialog, width = 3).grid(column=1, row=3, sticky=W)
+    ttk.Button(dmrFrame, text=STRING_CONNECT, command= lambda: connect(None)).grid(column=2, row=3, sticky=W)
+    ttk.Button(dmrFrame, text=STRING_DISCONNECT, command=disconnectButton).grid(column=3, row=3, sticky=W)
     return dmrFrame
 
 ###################################################################################
@@ -1015,7 +1138,7 @@ def makeLogFrame( parent ):
     logList = ttk.Treeview(logFrame)
     logList.grid(column=1, row=2, sticky=W, columnspan=5)
     
-    cols = ('Date', 'Time', 'Call', 'Slot', 'TG', 'Loss', 'Duration')
+    cols = (STRING_DATE, STRING_TIME, STRING_CALL, STRING_SLOT, STRING_TG, STRING_LOSS, STRING_DURATION)
     widths = [85, 85, 80, 55, 150, 70, 95]
     logList.config(columns=cols)
     logList.column("#0", width=1 )
@@ -1077,14 +1200,14 @@ def makeAppFrame( parent ):
 ###################################################################################
 def makeModeSettingsFrame( parent ):
     ypad = 4
-    dmrgroup = LabelFrame(parent, text="MODE", padx=5, pady=ypad, bg = "white")
+    dmrgroup = LabelFrame(parent, text=STRING_MODE, padx=5, pady=ypad, bg = "white")
     whiteLabel(dmrgroup, "Mode").grid(column=1, row=1, sticky=W, padx = 5, pady = ypad)
     w = OptionMenu(dmrgroup, master, *servers)
     w.grid(column=2, row=1, sticky=W, padx = 5, pady = ypad)
 
-    whiteLabel(dmrgroup, "Repeater ID").grid(column=1, row=2, sticky=W, padx = 5, pady = ypad)
+    whiteLabel(dmrgroup, STRING_REPEATER_ID).grid(column=1, row=2, sticky=W, padx = 5, pady = ypad)
     Entry(dmrgroup, width = 20, textvariable = repeater_id).grid(column=2, row=2, pady = ypad)
-    whiteLabel(dmrgroup, "Subscriber ID").grid(column=1, row=3, sticky=W, padx = 5, pady = ypad)
+    whiteLabel(dmrgroup, STRING_SUBSCRIBER_ID).grid(column=1, row=3, sticky=W, padx = 5, pady = ypad)
     Entry(dmrgroup, width = 20, textvariable = subscriber_id).grid(column=2, row=3, pady = ypad)
 
     return dmrgroup
@@ -1094,12 +1217,12 @@ def makeModeSettingsFrame( parent ):
 ###################################################################################
 def makeVoxSettingsFrame( parent ):
     ypad = 4
-    voxSettings = LabelFrame(parent, text="Vox", padx=5, pady = ypad, bg = "white")
-    Checkbutton(voxSettings, text = "Dongle Mode", variable=dongle_mode, command=lambda: cb(dongle_mode), background = "white").grid(column=1, row=1, sticky=W)
-    Checkbutton(voxSettings, text = "Vox Enable", variable=vox_enable, command=lambda: cb(vox_enable), background = "white").grid(column=1, row=2, sticky=W)
-    whiteLabel(voxSettings, "Threshold").grid(column=1, row=3, sticky=W, padx = 5, pady = ypad)
+    voxSettings = LabelFrame(parent, text=STRING_VOX, padx=5, pady = ypad, bg = "white")
+    Checkbutton(voxSettings, text = STRING_DONGLE_MODE, variable=dongle_mode, command=lambda: cb(dongle_mode), background = "white").grid(column=1, row=1, sticky=W)
+    Checkbutton(voxSettings, text = STRING_VOX_ENABLE, variable=vox_enable, command=lambda: cb(vox_enable), background = "white").grid(column=1, row=2, sticky=W)
+    whiteLabel(voxSettings, STRING_VOX_THRESHOLD).grid(column=1, row=3, sticky=W, padx = 5, pady = ypad)
     Spinbox(voxSettings, from_=1, to=32767, width = 5, textvariable = vox_threshold).grid(column=2, row=3, sticky=W, pady = ypad)
-    whiteLabel(voxSettings, "Delay").grid(column=1, row=4, sticky=W, padx = 5, pady = ypad)
+    whiteLabel(voxSettings, STRING_VOX_DELAY).grid(column=1, row=4, sticky=W, padx = 5, pady = ypad)
     Spinbox(voxSettings, from_=1, to=500, width = 5, textvariable = vox_delay).grid(column=2, row=4, sticky=W, pady = ypad)
 
     return voxSettings
@@ -1109,9 +1232,9 @@ def makeVoxSettingsFrame( parent ):
 ###################################################################################
 def makeIPSettingsFrame( parent ):
     ypad = 4
-    ipSettings = LabelFrame(parent, text="Network", padx=5, pady = ypad, bg = "white")
-    Checkbutton(ipSettings, text = "Loopback", variable=loopback, command=lambda: cb(loopback), background = "white").grid(column=1, row=1, sticky=W)
-    whiteLabel(ipSettings, "IP Address").grid(column=1, row=2, sticky=W, padx = 5, pady = ypad)
+    ipSettings = LabelFrame(parent, text=STRING_NETWORK, padx=5, pady = ypad, bg = "white")
+    Checkbutton(ipSettings, text = STRING_LOOPBACK, variable=loopback, command=lambda: cb(loopback), background = "white").grid(column=1, row=1, sticky=W)
+    whiteLabel(ipSettings, STRING_IP_ADDRESS).grid(column=1, row=2, sticky=W, padx = 5, pady = ypad)
     Entry(ipSettings, width = 20, textvariable = ip_address).grid(column=2, row=2, pady = ypad)
     return ipSettings
 
@@ -1137,7 +1260,10 @@ def makeAboutFrame( parent ):
     aboutText += "pyUC comes with ABSOLUTELY NO WARRANTY\n\n"
     aboutText += "This software is for use on amateur radio networks only,\n"
     aboutText += "it is to be used for educational purposes only. Its use on\n"
-    aboutText += "commercial networks is strictly prohibited.\n"
+    aboutText += "commercial networks is strictly prohibited.\n\n"
+    aboutText += "Code improvements are encouraged, please\n"
+    aboutText += "contribute to the development branch located at\n"
+    aboutText += "https://github.com/DVSwitch/USRP_Client\n"
 
     background = None
     try:
@@ -1154,7 +1280,9 @@ def makeAboutFrame( parent ):
 
     except:
         logging.warning("no image:" + str(sys.exc_info()[1]))
-    Message(aboutFrame, text=aboutText, background = "white", anchor=W, width=500).grid(column=2, row=1, sticky=NW, padx = 5, pady = 5)
+    msg = Message(aboutFrame, text=aboutText, background = "white", anchor=W, width=500)
+    msg.grid(column=2, row=1, sticky=NW, padx = 5, pady = 5)
+    msg.bind("<Button-1>", lambda e: webbrowser.open_new("https://github.com/DVSwitch/USRP_Client"))
     return aboutFrame
 
 ###################################################################################
@@ -1208,7 +1336,7 @@ def validateConfigInfo():
 ###################################################################################
 def on_closing():
     global done
-    logging.info("Exiting pyUC...")
+    logging.info(STRING_EXITING)
     done = True             # Signal the threads to terminate
     if regState == True:    # If we were registered, tell AB we are done
         sleep(1)            # wait just a moment for them to die
@@ -1220,7 +1348,7 @@ def on_closing():
 ############################################################################################################
 
 root = Tk()
-root.title("USRP Client")
+root.title(STRING_USRP_CLIENT)
 root.resizable(width=FALSE, height=FALSE)
 
 nb = ttk.Notebook(root)     # A tabbed interface container
@@ -1260,22 +1388,22 @@ try:
             talk_groups[sect] = config.items(sect)
 
     if validateConfigInfo() == False:
-        logging.error('Please edit the configuration file and set it up correctly. Exiting...')
+        logging.error(STRING_CONFIG_NOT_EDITED)
         os._exit(1)
         
 except:
-    logging.error("Config (ini) file error: " + str(sys.exc_info()[1]))
+    logging.error(STRING_CONFIG_FILE_ERROR + str(sys.exc_info()[1]))
     sys.exit('Configuration file \''+config_file_name+'\' is not a valid configuration file! Exiting...')
 
 servers = sorted(talk_groups.keys())
 master = makeTkVar(StringVar, defaultServer, masterChanged)
-connected_msg = makeTkVar(StringVar, "Connected to")
+connected_msg = makeTkVar(StringVar, STRING_CONNECTED_TO)
 current_tx_value = makeTkVar(StringVar, my_call)
 
 # Add each frame to the "notebook" (tabs)
-nb.add(makeAppFrame( nb ), text='Main')
-nb.add(makeSettingsFrame( nb ), text='Settings')
-nb.add(makeAboutFrame( nb ), text='About')
+nb.add(makeAppFrame( nb ), text=STRING_TAB_MAIN)
+nb.add(makeSettingsFrame( nb ), text=STRING_TAB_SETTINGS)
+nb.add(makeAboutFrame( nb ), text=STRING_TAB_ABOUT)
 nb.grid(column=1, row=1)
 
 # Create the other frames
@@ -1291,7 +1419,7 @@ if in_index != -1:  # Do not launch the TX thread if the user wants RX only acce
     _thread.start_new_thread( txAudioStream, () )
 _thread.start_new_thread( html_thread, () )     # Start up the HTML thread for background image loads
 
-disconnect()    # Start out in the disconnecte state
+disconnect()    # Start out in the disconnected state
 start()         # Begin the handshake with AB (register)
 
 root.protocol("WM_DELETE_WINDOW", on_closing)
