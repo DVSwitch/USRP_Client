@@ -40,6 +40,7 @@ import urllib.request
 import queue
 from pathlib import Path
 import hashlib
+from tkinter import font
 
 UC_VERSION = "1.2.0"
 
@@ -263,17 +264,19 @@ class MyDialog:
     
     def ok(self):
         
-        logging.info( "value is %s", self.e.get() )
         item = self.e.get()
         if len(item):
+            logging.info( "value is %s", item )
             mode = master.get()
             lst = item.split(',')
             if len(lst) == 1:
                 connect((item, item))
-                #talk_groups[mode].append((item, item))
+                if item.startswith('*') == False:
+                    talk_groups[mode].append((item, item))
             else:
                 connect((lst[0].strip(), lst[1].strip()))
-                #talk_groups[mode].append((lst[1].strip(), lst[0].strip()))
+                if item.startswith('*') == False:
+                    talk_groups[mode].append((lst[1].strip(), lst[0].strip()))
             fillTalkgroupList(master.get())
         self.top.destroy()
 
@@ -1262,8 +1265,8 @@ def makeAboutFrame( parent ):
     aboutText += "it is to be used for educational purposes only. Its use on\n"
     aboutText += "commercial networks is strictly prohibited.\n\n"
     aboutText += "Code improvements are encouraged, please\n"
-    aboutText += "contribute to the development branch located at\n"
-    aboutText += "https://github.com/DVSwitch/USRP_Client\n"
+    aboutText += "contribute to the development branch located at"
+    linkText = "https://github.com/DVSwitch/USRP_Client\n"
 
     background = None
     try:
@@ -1276,13 +1279,20 @@ def makeAboutFrame( parent ):
         lx.photo = background
         lx.callsign = "n4irr"
         lx.bind("<Button-1>", clickQRZImage)
-        lx.grid(column=1, row=1, sticky=W, padx = 5, pady = 5)
+        lx.grid(column=1, row=1, sticky=NW, padx = 5, pady = 5)
 
     except:
         logging.warning("no image:" + str(sys.exc_info()[1]))
     msg = Message(aboutFrame, text=aboutText, background = "white", anchor=W, width=500)
-    msg.grid(column=2, row=1, sticky=NW, padx = 5, pady = 5)
-    msg.bind("<Button-1>", lambda e: webbrowser.open_new("https://github.com/DVSwitch/USRP_Client"))
+    msg.grid(column=2, row=1, sticky=NW, padx = 5, pady = 0)
+
+    link = Label(aboutFrame, text=linkText, background = "white", fg='blue', anchor=W, cursor="hand2")
+    link.grid(column=2, row=2, sticky=NW, padx = 5, pady = 0)
+    link.bind("<Button-1>", lambda e: webbrowser.open_new("https://github.com/DVSwitch/USRP_Client"))
+    f = font.Font(link, link.cget("font"))
+    f.configure(underline=True)
+    link.configure(font=f)
+
     return aboutFrame
 
 ###################################################################################
