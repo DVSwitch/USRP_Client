@@ -101,7 +101,7 @@ transmitButton = None               # tk object
 logList = None                      # tk object
 macros = []
 
-uc_background_color = "black"
+uc_background_color = "gray25"
 uc_text_color = "white"
 
 ###################################################################################
@@ -256,16 +256,17 @@ class MyDialog:
 
         top = self.top = Toplevel(parent)
         top.geometry(win_offset)
+        top.configure(bg=uc_background_color)
 
-        Label(top, text=STRING_TALKGROUP).pack()
+        Label(top, text=STRING_TALKGROUP, fg=uc_text_color, bg=uc_background_color).pack()
         
         if len(macros) == 0:
-            self.e = Entry(top)
+            self.e = Entry(top, fg=uc_text_color, bg=uc_background_color)
         else:
             self.e = ttk.Combobox(top, values=macros)
         self.e.pack(padx=5)
         
-        b = Button(top, text=STRING_OK, command=self.ok)
+        b = ttk.Button(top, text=STRING_OK, command=self.ok)
         b.pack(pady=5)
     
     def ok(self):
@@ -1159,11 +1160,6 @@ def makeLogFrame( parent ):
     global logList
     logFrame = Frame(parent, pady = 5, padx = 5, bg = uc_background_color, bd = 1, relief = SUNKEN)
 
-    style = ttk.Style(root)
-    # set ttk theme to "clam" which support the fieldbackground option
-    style.theme_use("clam")
-    style.configure("Treeview", background=uc_background_color, fieldbackground=uc_background_color, foreground=uc_text_color)
-
     logList = ttk.Treeview(logFrame)
     logList.grid(column=1, row=2, sticky=W, columnspan=5)
     
@@ -1212,9 +1208,9 @@ def makeQRZFrame(parent):
     meta_frame = Frame(qrzFrame, bg = uc_background_color, bd = 1)
     meta_frame.grid(column=2, row=1, sticky=N)
 
-    qrz_call = Label(meta_frame, textvariable=current_call, anchor=N, bg = uc_background_color)
+    qrz_call = Label(meta_frame, textvariable=current_call, anchor=N, fg=uc_text_color, bg = uc_background_color)
     qrz_call.grid(column=1, row=1, sticky=NW)
-    qrz_name = Label(meta_frame, textvariable=current_name, anchor=N, bg = uc_background_color)
+    qrz_name = Label(meta_frame, textvariable=current_name, anchor=N, fg=uc_text_color, bg = uc_background_color)
     qrz_name.grid(column=1, row=2, sticky=NW)
 
     return qrzFrame
@@ -1244,7 +1240,8 @@ def makeModeSettingsFrame( parent ):
     whiteLabel(dmrgroup, "Mode").grid(column=1, row=1, sticky=W, padx = 5, pady = ypad)
     w = OptionMenu(dmrgroup, master, *servers)
     w.grid(column=2, row=1, sticky=W, padx = 5, pady = ypad)
-    w.config(bg = uc_background_color)  # Set background color to green
+    w.config(fg=uc_text_color, bg=uc_background_color)
+    w["menu"].config(fg=uc_text_color)
 
     whiteLabel(dmrgroup, STRING_REPEATER_ID).grid(column=1, row=2, sticky=W, padx = 5, pady = ypad)
     Entry(dmrgroup, width = 20, bg = uc_background_color, fg=uc_text_color, textvariable = repeater_id).grid(column=2, row=2, pady = ypad)
@@ -1354,6 +1351,14 @@ def makeStatusBar( parent ):
     root.after(1000, update_clock, obj)
     return statusBar
 
+def setStyles():
+    style = ttk.Style(root)
+    # set ttk theme to "clam" which support the fieldbackground option
+    style.theme_use("clam")
+    style.configure("Treeview", background=uc_background_color, fieldbackground=uc_background_color, foreground=uc_text_color)
+    style.configure('TNotebook.Tab', foreground=uc_text_color, background=uc_background_color)
+    style.configure('TButton', foreground=uc_text_color, background=uc_background_color)
+
 ###################################################################################
 # Read an int value from the ini file.  If an error or value is Default, return the 
 # valDefault passed in.
@@ -1450,6 +1455,8 @@ connected_msg = makeTkVar(StringVar, STRING_CONNECTED_TO)
 current_tx_value = makeTkVar(StringVar, my_call)
 current_call = makeTkVar(StringVar, "Call")
 current_name = makeTkVar(StringVar, "Name")
+
+setStyles()
 
 # Add each frame to the "notebook" (tabs)
 nb.add(makeAppFrame( nb ), text=STRING_TAB_MAIN)
