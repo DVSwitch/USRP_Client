@@ -42,7 +42,7 @@ from pathlib import Path
 import hashlib
 from tkinter import font
 
-UC_VERSION = "1.2.0"
+UC_VERSION = "1.2.1"
 
 ###################################################################################
 # Declare input and output ports for communication with AB
