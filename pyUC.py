@@ -1256,8 +1256,8 @@ def makeModeSettingsFrame( parent ):
 def makeVoxSettingsFrame( parent ):
     ypad = 4
     voxSettings = LabelFrame(parent, text=STRING_VOX, padx=5, pady = ypad, fg=uc_text_color, bg = uc_background_color) 
-    Checkbutton(voxSettings, text = STRING_DONGLE_MODE, variable=dongle_mode, command=lambda: cb(dongle_mode), fg=uc_text_color, bg = uc_background_color).grid(column=1, row=1, sticky=W)
-    Checkbutton(voxSettings, text = STRING_VOX_ENABLE, variable=vox_enable, command=lambda: cb(vox_enable), fg=uc_text_color, bg = uc_background_color).grid(column=1, row=2, sticky=W)
+    Checkbutton(voxSettings, text = STRING_DONGLE_MODE, variable=dongle_mode, command=lambda: cb(dongle_mode), fg=uc_text_color, bg = uc_background_color, bd = 0, highlightthickness = 0).grid(column=1, row=1, sticky=W)
+    Checkbutton(voxSettings, text = STRING_VOX_ENABLE, variable=vox_enable, command=lambda: cb(vox_enable), fg=uc_text_color, bg = uc_background_color, bd = 0, highlightthickness = 0).grid(column=1, row=2, sticky=W)
     whiteLabel(voxSettings, STRING_VOX_THRESHOLD).grid(column=1, row=3, sticky=W, padx = 5, pady = ypad)
     Spinbox(voxSettings, from_=1, to=32767, width = 5, fg=uc_text_color, bg=uc_background_color, textvariable = vox_threshold).grid(column=2, row=3, sticky=W, pady = ypad)
     whiteLabel(voxSettings, STRING_VOX_DELAY).grid(column=1, row=4, sticky=W, padx = 5, pady = ypad)
@@ -1271,7 +1271,7 @@ def makeVoxSettingsFrame( parent ):
 def makeIPSettingsFrame( parent ):
     ypad = 4
     ipSettings = LabelFrame(parent, text=STRING_NETWORK, padx=5, pady = ypad, fg=uc_text_color, bg = uc_background_color)
-    Checkbutton(ipSettings, text = STRING_LOOPBACK, variable=loopback, command=lambda: cb(loopback), fg=uc_text_color, bg = uc_background_color).grid(column=1, row=1, sticky=W)
+    Checkbutton(ipSettings, text = STRING_LOOPBACK, variable=loopback, command=lambda: cb(loopback), fg=uc_text_color, bg = uc_background_color, bd = 0, highlightthickness = 0).grid(column=1, row=1, sticky=W)
     whiteLabel(ipSettings, STRING_IP_ADDRESS).grid(column=1, row=2, sticky=W, padx = 5, pady = ypad)
     Entry(ipSettings, width = 20, fg=uc_text_color, bg=uc_background_color, textvariable = ip_address).grid(column=2, row=2, pady = ypad)
     return ipSettings
