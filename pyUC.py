@@ -87,7 +87,7 @@ out_index = None                    # Current output (speaker) index in the pyau
 in_index = None                     # Current input (mic) index in the pyaudio device list
 regState = False                    # Global registration state boolean
 noQuote = {ord('"'): ''}
-empty_photo = ("photo", "", "")     # instance of a blank photo
+empty_photo = ("photo", "", "", "") # instance of a blank photo
 SAMPLE_RATE = 48000                 # Default audio sample rate for pyaudio (will be resampled to 8K)
 toast_frame = None                  # A toplevel window used to display toast messages
 ipc_queue = None                    # Queue used to pass info to main hread (UI)
@@ -100,6 +100,9 @@ listbox = None                      # tk object (talkgroup)
 transmitButton = None               # tk object
 logList = None                      # tk object
 macros = []
+
+uc_background_color = "black"
+uc_text_color = "white"
 
 ###################################################################################
 # Strings
@@ -156,6 +159,7 @@ STRING_LOOPBACK = "Loopback"
 STRING_IP_ADDRESS = "IP Address"
 STRING_PRIVATE = "Private"
 STRING_GROUP = "Group"
+STRING_TRANSMIT = "Transmit"
 
 ###################################################################################
 # HTML/QRZ import libraries
@@ -180,7 +184,7 @@ def html_thread():
         try:
             callsign = html_queue.get(0)        # wait forever for a message to be placed in the queue (a callsign)
             photo = getQRZImage( callsign )     # lookup the call and return an image     
-            ipc_queue.put(("photo", callsign, photo))
+            ipc_queue.put(("photo", callsign, photo, ""))
         except queue.Empty:
             pass
         sleep(0.1)
@@ -230,6 +234,8 @@ def showQRZImage( msg, in_label ):
     in_label.configure(image=photo)
     in_label.image = photo
     in_label.callsign = msg[1]
+    current_call.set(msg[1])
+    current_name.set(msg[3])
 
 ###################################################################################
 
@@ -318,6 +324,19 @@ def noalsaerr():
         pass
 
 ###################################################################################
+# Log the EOT
+###################################################################################
+def log_end_of_transmission(call,rxslot,tg,loss,start_time):
+    logging.info('End TX:   {} {} {} {} {:.2f}s'.format(call, rxslot, tg, loss, time() - start_time))
+    logList.see(logList.insert('', 'end', None, values=(
+        strftime(" %m/%d/%y", localtime(start_time)),
+        strftime("%H:%M:%S", localtime(start_time)),
+        call.ljust(10), rxslot, tg, loss, '{:.2f}s'.format(time() - start_time))))
+    root.after(1000, logList.yview_moveto, 1)
+    current_tx_value.set(my_call)
+    html_queue.put("")  # clear the photo, use queue for short transmissions
+
+###################################################################################
 # RX thread, collect audio and metadata from AB
 ###################################################################################
 def rxAudioStream():
@@ -361,6 +380,8 @@ def rxAudioStream():
     call = ''
     name = ''
     tg = ''
+    lastSeq = 0
+    seq = 0
     loss = '0.00%'
     rxslot = '0'
     state = None
@@ -392,14 +413,7 @@ def rxAudioStream():
                     if keyup:
                         start_time = time()
                     if keyup == False:
-                        logging.info('End TX:   {} {} {} {} {:.2f}s'.format(call, rxslot, tg, loss, time() - start_time))
-                        logList.see(logList.insert('', 'end', None, values=(
-                                                                            strftime(" %m/%d/%y", localtime(start_time)),
-                                                                            strftime("%H:%M:%S", localtime(start_time)),
-                                                                            call.ljust(10), rxslot, tg, loss, '{:.2f}s'.format(time() - start_time))))
-                        root.after(1000, logList.yview_moveto, 1)
-                        current_tx_value.set(my_call)
-                        html_queue.put("")  # clear the photo, use queue for short transmissions
+                        log_end_of_transmission(call, rxslot, tg, loss, start_time)
                         transmit_enable = True  # Idle state, allow local transmit
                 lastKey = keyup
             elif (type == USRP_TYPE_TEXT): #metadata
@@ -450,6 +464,8 @@ def rxAudioStream():
                         selectTGByValue(obj["last_tune"])
                 else:
                     if audio[0] == TLV_TAG_SET_INFO:
+                        if transmit_enable == False:    #EOT missed?
+                            log_end_of_transmission(call, rxslot, tg, loss, start_time)
                         rid = (audio[2] << 16) + (audio[3] << 8) + audio[4] # Source
                         tg = (audio[9] << 16) + (audio[10] << 8) + audio[11] # Dest
                         rxslot = audio[12]
@@ -483,6 +499,12 @@ def rxAudioStream():
                                 fillTalkgroupList(listName)
                             selectTGByValue(privateTG)
             elif (type == USRP_TYPE_PING):
+                if transmit_enable == False:    # Do we think we receiving packets?, lets test for EOT missed
+                    if (lastSeq+1) == seq:
+                        logging.info("missed EOT")
+                        log_end_of_transmission(call, rxslot, tg, loss, start_time)
+                        transmit_enable = True  # Idle state, allow local transmit
+                    lastSeq = seq
 #                logging.debug(audio[:audio.find('\x00')])
                 pass
             elif (type == USRP_TYPE_TLV):
@@ -995,7 +1017,7 @@ def showPTTState(flag):
         html_queue.put(my_call)     # Show my own pic when I transmit
         logging.info("PTT ON")
     else:
-        transmitButton.configure(highlightbackground='white')
+        transmitButton.configure(highlightbackground=uc_background_color)
         if flag == 1:
             _date = strftime("%m/%d/%y", localtime(time()))
             _time = strftime("%H:%M:%S", localtime(time()))
@@ -1044,7 +1066,7 @@ def cb(value):
 # Create a simple while label 
 ###################################################################################
 def whiteLabel(parent, textVal):
-    l = Label(parent, text=textVal, background = "white", anchor=W)
+    l = Label(parent, text=textVal, fg=uc_text_color, bg = uc_background_color, anchor=W)
     return l
 
 ###################################################################################
@@ -1058,7 +1080,7 @@ def tgDialog():
 # 
 ###################################################################################
 def makeModeFrame( parent ):
-    modeFrame = LabelFrame(parent, text = STRING_SERVER, pady = 5, padx = 5, bg = "white", bd = 1, relief = SUNKEN)
+    modeFrame = LabelFrame(parent, text = STRING_SERVER, pady = 5, padx = 5, fg=uc_text_color, bg = uc_background_color, bd = 1, relief = SUNKEN)
     ttk.Button(modeFrame, text=STRING_READ, command=getValuesFromServer).grid(column=1, row=1, sticky=W)
     ttk.Button(modeFrame, text=STRING_WRITE, command=sendValuesToServer).grid(column=1, row=2, sticky=W)
     return modeFrame
@@ -1067,7 +1089,7 @@ def makeModeFrame( parent ):
 #
 ###################################################################################
 def makeAudioFrame( parent ):
-    audioFrame = LabelFrame(parent, text = STRING_AUDIO, pady = 5, padx = 5, bg = "white", bd = 1, relief = SUNKEN)
+    audioFrame = LabelFrame(parent, text = STRING_AUDIO, pady = 5, padx = 5, fg=uc_text_color, bg = uc_background_color, bd = 1, relief = SUNKEN)
     whiteLabel(audioFrame, STRING_MIC).grid(column=1, row=1, sticky=W, padx = 5, pady=1)
     whiteLabel(audioFrame, STRING_SPEAKER).grid(column=1, row=2, sticky=W, padx = 5, pady=1)
     ttk.Scale(audioFrame, from_=0, to=100, orient=HORIZONTAL, variable=mic_vol,
@@ -1081,7 +1103,7 @@ def makeAudioFrame( parent ):
         invar = StringVar(root)
         invar.set(devices[0]) # default value
         inp = OptionMenu(audioFrame, invar, *devices)
-        inp.config(width=20)
+        inp.config(width=20, bg=uc_background_color)
         inp.grid(column=2, row=3, sticky=W)
 
     whiteLabel(audioFrame, STRING_OUTPUT).grid(column=1, row=4, sticky=W, padx = 5)
@@ -1089,7 +1111,7 @@ def makeAudioFrame( parent ):
     outvar = StringVar(root)
     outvar.set(devices[0]) # default value
     out = OptionMenu(audioFrame, outvar, *devices)
-    out.config(width=20)
+    out.config(width=20, bg=uc_background_color)
     out.grid(column=2, row=4, sticky=W)
 
     return audioFrame
@@ -1108,15 +1130,15 @@ def fillTalkgroupList( listName ):
 ###################################################################################
 def makeGroupFrame( parent ):
     global listbox
-    dmrFrame = LabelFrame(parent, text = STRING_TALKGROUPS, pady = 5, padx = 5, bg = "white", bd = 1, relief = SUNKEN)
+    dmrFrame = LabelFrame(parent, text = STRING_TALKGROUPS, pady = 5, padx = 5, fg=uc_text_color, bg = uc_background_color, bd = 1, relief = SUNKEN)
     whiteLabel(dmrFrame, STRING_TS).grid(column=1, row=1, sticky=W, padx = 5)
-    Spinbox(dmrFrame, from_=1, to=2, width = 5, textvariable = slot).grid(column=2, row=1, sticky=W)
+    Spinbox(dmrFrame, from_=1, to=2, width = 5, fg=uc_text_color, bg=uc_background_color, textvariable = slot).grid(column=2, row=1, sticky=W)
     whiteLabel(dmrFrame, STRING_TG).grid(column=1, row=2, sticky=(N, W), padx = 5)
 
     listFrame = Frame(dmrFrame, bd=1, highlightbackground="black", highlightcolor="black", highlightthickness=1)
     listFrame.grid(column=2, row=2, sticky=W, columnspan=2)
-    listbox = Listbox(listFrame, selectmode=EXTENDED, bd=0)
-    listbox.configure(exportselection=False)
+    listbox = Listbox(listFrame, selectmode=EXTENDED, bd=0, bg=uc_background_color)
+    listbox.configure(fg=uc_text_color, exportselection=False)
     listbox.grid(column=1, row=1, sticky=W)
 
     scrollbar = Scrollbar(listFrame, orient="vertical")
@@ -1135,8 +1157,12 @@ def makeGroupFrame( parent ):
 ###################################################################################
 def makeLogFrame( parent ):
     global logList
-    logFrame = Frame(parent, pady = 5, padx = 5, bg = "white", bd = 1, relief = SUNKEN)
+    logFrame = Frame(parent, pady = 5, padx = 5, bg = uc_background_color, bd = 1, relief = SUNKEN)
 
+    style = ttk.Style(root)
+    # set ttk theme to "clam" which support the fieldbackground option
+    style.theme_use("clam")
+    style.configure("Treeview", background=uc_background_color, fieldbackground=uc_background_color, foreground=uc_text_color)
 
     logList = ttk.Treeview(logFrame)
     logList.grid(column=1, row=2, sticky=W, columnspan=5)
@@ -1159,9 +1185,11 @@ def makeLogFrame( parent ):
 ###################################################################################
 def makeTransmitFrame(parent):
     global transmitButton
-    transmitFrame = Frame(parent, pady = 5, padx = 5, bg = "white", bd = 1)
-    transmitButton = Button(transmitFrame, text="Transmit", command=transmit, width = 40, state='disabled')
+    transmitFrame = Frame(parent, pady = 5, padx = 5, bg = uc_background_color, bd = 1)
+    transmitButton = Button(transmitFrame, text=STRING_TRANSMIT, command=transmit, width = 40, state='disabled')
     transmitButton.grid(column=1, row=1, sticky=W)
+    transmitButton.configure(highlightbackground=uc_background_color)
+
     return transmitFrame
 
 ###################################################################################
@@ -1174,19 +1202,28 @@ def clickQRZImage(event):
         webbrowser.open_new_tab("http://www.qrz.com/lookup/"+call)
 
 def makeQRZFrame(parent):
-    global qrz_label
-    qrzFrame = Frame(parent, bg = "white", bd = 1)
-    lx = Label(qrzFrame, text="", anchor=W, background = "white", cursor="hand2")
+    global qrz_label, qrz_call, qrz_name
+    qrzFrame = Frame(parent, bg = uc_background_color, bd = 1)
+    lx = Label(qrzFrame, text="", anchor=W, bg = uc_background_color, cursor="hand2")
     lx.grid(column=1, row=1, sticky=W)
     qrz_label = lx
     qrz_label.bind("<Button-1>", clickQRZImage)
+
+    meta_frame = Frame(qrzFrame, bg = uc_background_color, bd = 1)
+    meta_frame.grid(column=2, row=1, sticky=N)
+
+    qrz_call = Label(meta_frame, textvariable=current_call, anchor=N, bg = uc_background_color)
+    qrz_call.grid(column=1, row=1, sticky=NW)
+    qrz_name = Label(meta_frame, textvariable=current_name, anchor=N, bg = uc_background_color)
+    qrz_name.grid(column=1, row=2, sticky=NW)
+
     return qrzFrame
 
 ###################################################################################
 #
 ###################################################################################
 def makeAppFrame( parent ):
-    appFrame = Frame(parent, pady = 5, padx = 5, bg = "white", bd = 1, relief = SUNKEN)
+    appFrame = Frame(parent, pady = 5, padx = 5, bg = uc_background_color, bd = 1, relief = SUNKEN)
     appFrame.grid(column=0, row=0, sticky=(N, W, E, S))
     appFrame.columnconfigure(0, weight=1)
     appFrame.rowconfigure(0, weight=1)
@@ -1203,15 +1240,16 @@ def makeAppFrame( parent ):
 ###################################################################################
 def makeModeSettingsFrame( parent ):
     ypad = 4
-    dmrgroup = LabelFrame(parent, text=STRING_MODE, padx=5, pady=ypad, bg = "white")
+    dmrgroup = LabelFrame(parent, text=STRING_MODE, padx=5, pady=ypad, fg=uc_text_color, bg = uc_background_color)
     whiteLabel(dmrgroup, "Mode").grid(column=1, row=1, sticky=W, padx = 5, pady = ypad)
     w = OptionMenu(dmrgroup, master, *servers)
     w.grid(column=2, row=1, sticky=W, padx = 5, pady = ypad)
+    w.config(bg = uc_background_color)  # Set background color to green
 
     whiteLabel(dmrgroup, STRING_REPEATER_ID).grid(column=1, row=2, sticky=W, padx = 5, pady = ypad)
-    Entry(dmrgroup, width = 20, textvariable = repeater_id).grid(column=2, row=2, pady = ypad)
+    Entry(dmrgroup, width = 20, bg = uc_background_color, fg=uc_text_color, textvariable = repeater_id).grid(column=2, row=2, pady = ypad)
     whiteLabel(dmrgroup, STRING_SUBSCRIBER_ID).grid(column=1, row=3, sticky=W, padx = 5, pady = ypad)
-    Entry(dmrgroup, width = 20, textvariable = subscriber_id).grid(column=2, row=3, pady = ypad)
+    Entry(dmrgroup, width = 20, bg = uc_background_color, fg=uc_text_color, textvariable = subscriber_id).grid(column=2, row=3, pady = ypad)
 
     return dmrgroup
 
@@ -1220,13 +1258,13 @@ def makeModeSettingsFrame( parent ):
 ###################################################################################
 def makeVoxSettingsFrame( parent ):
     ypad = 4
-    voxSettings = LabelFrame(parent, text=STRING_VOX, padx=5, pady = ypad, bg = "white")
-    Checkbutton(voxSettings, text = STRING_DONGLE_MODE, variable=dongle_mode, command=lambda: cb(dongle_mode), background = "white").grid(column=1, row=1, sticky=W)
-    Checkbutton(voxSettings, text = STRING_VOX_ENABLE, variable=vox_enable, command=lambda: cb(vox_enable), background = "white").grid(column=1, row=2, sticky=W)
+    voxSettings = LabelFrame(parent, text=STRING_VOX, padx=5, pady = ypad, fg=uc_text_color, bg = uc_background_color) 
+    Checkbutton(voxSettings, text = STRING_DONGLE_MODE, variable=dongle_mode, command=lambda: cb(dongle_mode), fg=uc_text_color, bg = uc_background_color).grid(column=1, row=1, sticky=W)
+    Checkbutton(voxSettings, text = STRING_VOX_ENABLE, variable=vox_enable, command=lambda: cb(vox_enable), fg=uc_text_color, bg = uc_background_color).grid(column=1, row=2, sticky=W)
     whiteLabel(voxSettings, STRING_VOX_THRESHOLD).grid(column=1, row=3, sticky=W, padx = 5, pady = ypad)
-    Spinbox(voxSettings, from_=1, to=32767, width = 5, textvariable = vox_threshold).grid(column=2, row=3, sticky=W, pady = ypad)
+    Spinbox(voxSettings, from_=1, to=32767, width = 5, fg=uc_text_color, bg=uc_background_color, textvariable = vox_threshold).grid(column=2, row=3, sticky=W, pady = ypad)
     whiteLabel(voxSettings, STRING_VOX_DELAY).grid(column=1, row=4, sticky=W, padx = 5, pady = ypad)
-    Spinbox(voxSettings, from_=1, to=500, width = 5, textvariable = vox_delay).grid(column=2, row=4, sticky=W, pady = ypad)
+    Spinbox(voxSettings, from_=1, to=500, width = 5, fg=uc_text_color, bg=uc_background_color, textvariable = vox_delay).grid(column=2, row=4, sticky=W, pady = ypad)
 
     return voxSettings
 
@@ -1235,17 +1273,17 @@ def makeVoxSettingsFrame( parent ):
 ###################################################################################
 def makeIPSettingsFrame( parent ):
     ypad = 4
-    ipSettings = LabelFrame(parent, text=STRING_NETWORK, padx=5, pady = ypad, bg = "white")
-    Checkbutton(ipSettings, text = STRING_LOOPBACK, variable=loopback, command=lambda: cb(loopback), background = "white").grid(column=1, row=1, sticky=W)
+    ipSettings = LabelFrame(parent, text=STRING_NETWORK, padx=5, pady = ypad, fg=uc_text_color, bg = uc_background_color)
+    Checkbutton(ipSettings, text = STRING_LOOPBACK, variable=loopback, command=lambda: cb(loopback), fg=uc_text_color, bg = uc_background_color).grid(column=1, row=1, sticky=W)
     whiteLabel(ipSettings, STRING_IP_ADDRESS).grid(column=1, row=2, sticky=W, padx = 5, pady = ypad)
-    Entry(ipSettings, width = 20, textvariable = ip_address).grid(column=2, row=2, pady = ypad)
+    Entry(ipSettings, width = 20, fg=uc_text_color, bg=uc_background_color, textvariable = ip_address).grid(column=2, row=2, pady = ypad)
     return ipSettings
 
 ###################################################################################
 #
 ###################################################################################
 def makeSettingsFrame( parent ):
-    settingsFrame = Frame(parent, width = 500, height = 500,pady = 5, padx = 5, bg = "white", bd = 1, relief = SUNKEN)
+    settingsFrame = Frame(parent, width = 500, height = 500,pady = 5, padx = 5, bg = uc_background_color, bd = 1, relief = SUNKEN)
     makeModeFrame(settingsFrame).grid(column=1, row=1, sticky=(N,W), padx = 5)
     makeIPSettingsFrame(settingsFrame).grid(column=2, row=1, sticky=(N,W), padx = 5, pady = 5, columnspan=2)
     makeVoxSettingsFrame(settingsFrame).grid(column=1, row=2, sticky=(N,W), padx = 5)
@@ -1256,7 +1294,7 @@ def makeSettingsFrame( parent ):
 #
 ###################################################################################
 def makeAboutFrame( parent ):
-    aboutFrame = Frame(parent, width = parent.winfo_width(), height = parent.winfo_height(),pady = 5, padx = 5, bg = "white", bd = 1, relief = SUNKEN)
+    aboutFrame = Frame(parent, width = parent.winfo_width(), height = parent.winfo_height(),pady = 5, padx = 5, bg = uc_background_color, bd = 1, relief = SUNKEN)
     aboutText = "USRP Client (pyUC) Version " + UC_VERSION + "\n"
     aboutText += "(C) 2019, 2020 DVSwitch, INAD.\n"
     aboutText += "Created by Mike N4IRR and Steve N4IRS\n"
@@ -1283,10 +1321,10 @@ def makeAboutFrame( parent ):
 
     except:
         logging.warning("no image:" + str(sys.exc_info()[1]))
-    msg = Message(aboutFrame, text=aboutText, background = "white", anchor=W, width=500)
+    msg = Message(aboutFrame, text=aboutText, fg=uc_text_color, bg = uc_background_color, anchor=W, width=500)
     msg.grid(column=2, row=1, sticky=NW, padx = 5, pady = 0)
 
-    link = Label(aboutFrame, text=linkText, background = "white", fg='blue', anchor=W, cursor="hand2")
+    link = Label(aboutFrame, text=linkText, bg = uc_background_color, fg='blue', anchor=W, cursor="hand2")
     link.grid(column=2, row=2, sticky=NW, padx = 5, pady = 0)
     link.bind("<Button-1>", lambda e: webbrowser.open_new("https://github.com/DVSwitch/USRP_Client"))
     f = font.Font(link, link.cget("font"))
@@ -1308,10 +1346,10 @@ def update_clock(obj):
 ###################################################################################
 def makeStatusBar( parent ):
     w = 22
-    statusBar = Frame(parent, pady = 5, padx = 5)
-    Label(statusBar, textvariable=connected_msg, anchor=W, width = w).grid(column=1, row=1, sticky=W)
-    Label(statusBar, textvariable=current_tx_value, anchor=CENTER, width = w).grid(column=2, row=1, sticky=N)
-    obj = Label(statusBar, text="", anchor=E, width = w)
+    statusBar = Frame(parent, pady = 5, padx = 5, bg = uc_background_color)
+    Label(statusBar, fg=uc_text_color, bg = uc_background_color, textvariable=connected_msg, anchor=W, width = w).grid(column=1, row=1, sticky=W)
+    Label(statusBar, fg=uc_text_color, bg = uc_background_color, textvariable=current_tx_value, anchor=CENTER, width = w).grid(column=2, row=1, sticky=N)
+    obj = Label(statusBar, fg=uc_text_color, bg = uc_background_color, text="", anchor=E, width = w)
     obj.grid(column=3, row=1, sticky=E)
     root.after(1000, update_clock, obj)
     return statusBar
@@ -1360,6 +1398,7 @@ def on_closing():
 root = Tk()
 root.title(STRING_USRP_CLIENT)
 root.resizable(width=FALSE, height=FALSE)
+root.configure(bg=uc_background_color)
 
 nb = ttk.Notebook(root)     # A tabbed interface container
 
@@ -1409,6 +1448,8 @@ servers = sorted(talk_groups.keys())
 master = makeTkVar(StringVar, defaultServer, masterChanged)
 connected_msg = makeTkVar(StringVar, STRING_CONNECTED_TO)
 current_tx_value = makeTkVar(StringVar, my_call)
+current_call = makeTkVar(StringVar, "Call")
+current_name = makeTkVar(StringVar, "Name")
 
 # Add each frame to the "notebook" (tabs)
 nb.add(makeAppFrame( nb ), text=STRING_TAB_MAIN)
