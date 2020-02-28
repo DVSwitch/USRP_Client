@@ -182,9 +182,9 @@ def html_thread():
     html_queue = queue.Queue()              # Create the queue
     while done == False:
         try:
-            callsign = html_queue.get(0)        # wait forever for a message to be placed in the queue (a callsign)
+            callsign, name = html_queue.get(0)        # wait forever for a message to be placed in the queue (a callsign)
             photo = getQRZImage( callsign )     # lookup the call and return an image     
-            ipc_queue.put(("photo", callsign, photo, ""))
+            ipc_queue.put(("photo", callsign, photo, name))
         except queue.Empty:
             pass
         sleep(0.1)
@@ -335,7 +335,7 @@ def log_end_of_transmission(call,rxslot,tg,loss,start_time):
         call.ljust(10), rxslot, tg, loss, '{:.2f}s'.format(time() - start_time))))
     root.after(1000, logList.yview_moveto, 1)
     current_tx_value.set(my_call)
-    html_queue.put("")  # clear the photo, use queue for short transmissions
+    html_queue.put(("", ""))  # clear the photo, use queue for short transmissions
 
 ###################################################################################
 # RX thread, collect audio and metadata from AB
@@ -472,6 +472,7 @@ def rxAudioStream():
                         rxslot = audio[12]
                         rxcc = audio[13]
                         mode = STRING_PRIVATE if (rxcc  & 0x80) else STRING_GROUP
+                        name = ""
                         if audio[14] == 0: # C string termintor for call
                             call = str(rid)
                         else:
@@ -488,7 +489,7 @@ def rxAudioStream():
                         logging.info('Begin TX: {} {} {} {}'.format(call, rxslot, tg, mode))
                         transmit_enable = False # Transmission from network will disable local transmit
                         if call.isdigit() == False:
-                            html_queue.put(call)
+                            html_queue.put((call, name))
                         if ((rxcc  & 0x80) and (rid > 10000)): 
 #                            logging.info('rid {} ctg {}'.format(rid, getCurrentTG()))
                             # a dial string with a pound is a private call, see if the current TG matches
@@ -1015,7 +1016,7 @@ def showPTTState(flag):
         transmitButton.configure(highlightbackground='red')
         tx_start_time = time()
         current_tx_value.set('{} -> {}'.format(my_call, getCurrentTG()))
-        html_queue.put(my_call)     # Show my own pic when I transmit
+        html_queue.put((my_call, ""))     # Show my own pic when I transmit
         logging.info("PTT ON")
     else:
         transmitButton.configure(highlightbackground=uc_background_color)
@@ -1208,9 +1209,9 @@ def makeQRZFrame(parent):
     meta_frame = Frame(qrzFrame, bg = uc_background_color, bd = 1)
     meta_frame.grid(column=2, row=1, sticky=N)
 
-    qrz_call = Label(meta_frame, textvariable=current_call, anchor=N, fg=uc_text_color, bg = uc_background_color)
+    qrz_call = Label(meta_frame, textvariable=current_call, anchor=N, fg=uc_text_color, bg = uc_background_color, font='Helvetica 18 bold')
     qrz_call.grid(column=1, row=1, sticky=NW)
-    qrz_name = Label(meta_frame, textvariable=current_name, anchor=N, fg=uc_text_color, bg = uc_background_color)
+    qrz_name = Label(meta_frame, textvariable=current_name, anchor=N, fg=uc_text_color, bg = uc_background_color, font='Helvetica 18 bold')
     qrz_name.grid(column=1, row=2, sticky=NW)
 
     return qrzFrame
@@ -1236,7 +1237,7 @@ def makeAppFrame( parent ):
 ###################################################################################
 def makeModeSettingsFrame( parent ):
     ypad = 4
-    dmrgroup = LabelFrame(parent, text=STRING_MODE, padx=5, pady=ypad, fg=uc_text_color, bg = uc_background_color)
+    dmrgroup = LabelFrame(parent, text=STRING_MODE, padx=5, pady=ypad, fg=uc_text_color, bg = uc_background_color, relief = SUNKEN)
     whiteLabel(dmrgroup, "Mode").grid(column=1, row=1, sticky=W, padx = 5, pady = ypad)
     w = OptionMenu(dmrgroup, master, *servers)
     w.grid(column=2, row=1, sticky=W, padx = 5, pady = ypad)
@@ -1255,7 +1256,7 @@ def makeModeSettingsFrame( parent ):
 ###################################################################################
 def makeVoxSettingsFrame( parent ):
     ypad = 4
-    voxSettings = LabelFrame(parent, text=STRING_VOX, padx=5, pady = ypad, fg=uc_text_color, bg = uc_background_color) 
+    voxSettings = LabelFrame(parent, text=STRING_VOX, padx=5, pady = ypad, fg=uc_text_color, bg = uc_background_color, relief = SUNKEN) 
     Checkbutton(voxSettings, text = STRING_DONGLE_MODE, variable=dongle_mode, command=lambda: cb(dongle_mode), fg=uc_text_color, bg = uc_background_color, bd = 0, highlightthickness = 0).grid(column=1, row=1, sticky=W)
     Checkbutton(voxSettings, text = STRING_VOX_ENABLE, variable=vox_enable, command=lambda: cb(vox_enable), fg=uc_text_color, bg = uc_background_color, bd = 0, highlightthickness = 0).grid(column=1, row=2, sticky=W)
     whiteLabel(voxSettings, STRING_VOX_THRESHOLD).grid(column=1, row=3, sticky=W, padx = 5, pady = ypad)
@@ -1270,7 +1271,7 @@ def makeVoxSettingsFrame( parent ):
 ###################################################################################
 def makeIPSettingsFrame( parent ):
     ypad = 4
-    ipSettings = LabelFrame(parent, text=STRING_NETWORK, padx=5, pady = ypad, fg=uc_text_color, bg = uc_background_color)
+    ipSettings = LabelFrame(parent, text=STRING_NETWORK, padx=5, pady = ypad, fg=uc_text_color, bg = uc_background_color, relief = SUNKEN)
     Checkbutton(ipSettings, text = STRING_LOOPBACK, variable=loopback, command=lambda: cb(loopback), fg=uc_text_color, bg = uc_background_color, bd = 0, highlightthickness = 0).grid(column=1, row=1, sticky=W)
     whiteLabel(ipSettings, STRING_IP_ADDRESS).grid(column=1, row=2, sticky=W, padx = 5, pady = ypad)
     Entry(ipSettings, width = 20, fg=uc_text_color, bg=uc_background_color, textvariable = ip_address).grid(column=2, row=2, pady = ypad)
@@ -1342,11 +1343,11 @@ def update_clock(obj):
 #
 ###################################################################################
 def makeStatusBar( parent ):
-    w = 22
+    w = 25
     statusBar = Frame(parent, pady = 5, padx = 5, bg = uc_background_color)
-    Label(statusBar, fg=uc_text_color, bg = uc_background_color, textvariable=connected_msg, anchor=W, width = w).grid(column=1, row=1, sticky=W)
-    Label(statusBar, fg=uc_text_color, bg = uc_background_color, textvariable=current_tx_value, anchor=CENTER, width = w).grid(column=2, row=1, sticky=N)
-    obj = Label(statusBar, fg=uc_text_color, bg = uc_background_color, text="", anchor=E, width = w)
+    Label(statusBar, fg=uc_text_color, bg = uc_background_color, textvariable=connected_msg, anchor='w', width = w).grid(column=1, row=1, sticky=W)
+    Label(statusBar, fg=uc_text_color, bg = uc_background_color, textvariable=current_tx_value, anchor='center', width = w).grid(column=2, row=1, sticky=N)
+    obj = Label(statusBar, fg=uc_text_color, bg = uc_background_color, text="", anchor='e', width = w)
     obj.grid(column=3, row=1, sticky=E)
     root.after(1000, update_clock, obj)
     return statusBar
@@ -1462,11 +1463,11 @@ setStyles()
 nb.add(makeAppFrame( nb ), text=STRING_TAB_MAIN)
 nb.add(makeSettingsFrame( nb ), text=STRING_TAB_SETTINGS)
 nb.add(makeAboutFrame( nb ), text=STRING_TAB_ABOUT)
-nb.grid(column=1, row=1)
+nb.grid(column=1, row=1, sticky='EW')
 
 # Create the other frames
 makeLogFrame(root).grid(column=1, row=2)
-makeStatusBar(root).grid(column=1, row=3)
+makeStatusBar(root).grid(column=1, row=3, sticky=W+E)
 
 init_queue()    # Create the queue for thread to main app communications
 openStream()    # Open the UDP stream to AB
