@@ -480,17 +480,17 @@ def rxAudioStream():
                             if call[0] == '{':    # its a json dict
                                 obj=json.loads(call)
                                 call = obj['call']
-                                name = ' '+obj['name'].split(' ')[0] if 'name' in obj else ""
+                                name = obj['name'].split(' ')[0] if 'name' in obj else ""
                         listName = master.get()
                         for item in talk_groups[listName]:
                             if item[1] == str(tg):
                                 tg = item[0]    # Found the TG number in the list, so we can use its friendly name
-                        current_tx_value.set('{}{} -> {}'.format(call, name, tg))
+                        current_tx_value.set('{} -> {}'.format(call, tg))
                         logging.info('Begin TX: {} {} {} {}'.format(call, rxslot, tg, mode))
                         transmit_enable = False # Transmission from network will disable local transmit
                         if call.isdigit() == False:
                             html_queue.put((call, name))
-                        if ((rxcc  & 0x80) and (rid > 10000)): 
+                        if ((rxcc  & 0x80) and (rid > 10000)): # > 10000 to exclude "4000" from BM
 #                            logging.info('rid {} ctg {}'.format(rid, getCurrentTG()))
                             # a dial string with a pound is a private call, see if the current TG matches
                             privateTG = str(rid) + '#'
@@ -499,6 +499,7 @@ def rxAudioStream():
                                 sendRemoteControlCommandASCII("txTg=" + privateTG)
                                 talk_groups[listName].append((call + " Private", privateTG))
                                 fillTalkgroupList(listName)
+                                tg = privateTG # Make log entries say the right thing
                             selectTGByValue(privateTG)
             elif (type == USRP_TYPE_PING):
                 if transmit_enable == False:    # Do we think we receiving packets?, lets test for EOT missed
@@ -1209,10 +1210,10 @@ def makeQRZFrame(parent):
     meta_frame = Frame(qrzFrame, bg = uc_background_color, bd = 1)
     meta_frame.grid(column=2, row=1, sticky=N)
 
-    qrz_call = Label(meta_frame, textvariable=current_call, anchor=N, fg=uc_text_color, bg = uc_background_color, font='Helvetica 18 bold')
-    qrz_call.grid(column=1, row=1, sticky=NW)
-    qrz_name = Label(meta_frame, textvariable=current_name, anchor=N, fg=uc_text_color, bg = uc_background_color, font='Helvetica 18 bold')
-    qrz_name.grid(column=1, row=2, sticky=NW)
+    qrz_call = Label(meta_frame, textvariable=current_call, anchor=W, fg=uc_text_color, bg = uc_background_color, font='Helvetica 18 bold')
+    qrz_call.grid(column=1, row=1, sticky=EW)
+    qrz_name = Label(meta_frame, textvariable=current_name, anchor=W, fg=uc_text_color, bg = uc_background_color, font='Helvetica 18 bold')
+    qrz_name.grid(column=1, row=2, sticky=EW)
 
     return qrzFrame
 
