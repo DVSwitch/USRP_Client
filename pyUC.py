@@ -482,6 +482,10 @@ def rxAudioStream():
                                 call = obj['call']
                                 name = obj['name'].split(' ')[0] if 'name' in obj else ""
                         listName = master.get()
+                        if (listName == 'DSTAR') or (listName == "YSF"): # for these modes the TG is not valid
+                            tg = getCurrentTGName()
+                        elif tg == subscriber_id.get(): # is the dest TG my dmr ID? (private call)
+                            tg = my_call
                         for item in talk_groups[listName]:
                             if item[1] == str(tg):
                                 tg = item[0]    # Found the TG number in the list, so we can use its friendly name
@@ -1365,12 +1369,12 @@ def setStyles():
 # Read an int value from the ini file.  If an error or value is Default, return the 
 # valDefault passed in.
 ###################################################################################
-def readValue( config, stanza, valName, valDefault ):
+def readValue( config, stanza, valName, valDefault, func ):
     try:
         val = config.get(stanza, valName).split(None)[0]
         if val.lower() == "default":  # This is a special case for the in and out index settings
             return valDefault
-        return int(val)
+        return func(val)
     except:
         return valDefault
 
@@ -1435,8 +1439,11 @@ try:
     defaultServer = config.get('DEFAULTS', "defaultServer").split(None)[0]
     asl_mode = makeTkVar(IntVar, config.get('DEFAULTS', "aslMode").split(None)[0])
 
-    in_index = readValue(config, 'DEFAULTS', 'in_index', None)
-    out_index = readValue(config, 'DEFAULTS', 'out_index', None)
+    in_index = readValue(config, 'DEFAULTS', 'in_index', None, int)
+    out_index = readValue(config, 'DEFAULTS', 'out_index', None, int)
+
+    uc_background_color = readValue(config, 'DEFAULTS', 'backgroundColor', 'gray25', str)
+    uc_text_color = readValue(config, 'DEFAULTS', 'textColor', 'white', str)
 
     talk_groups = {}
     for sect in config.sections():
