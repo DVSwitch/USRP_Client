@@ -99,7 +99,7 @@ transmit_enable = True              # Make sure that UC is half duplex
 listbox = None                      # tk object (talkgroup)
 transmitButton = None               # tk object
 logList = None                      # tk object
-macros = []
+macros = {}
 
 uc_background_color = "gray25"
 uc_text_color = "white"
@@ -263,7 +263,7 @@ class MyDialog:
         if len(macros) == 0:
             self.e = Entry(top, fg=uc_text_color, bg=uc_background_color)
         else:
-            self.e = ttk.Combobox(top, values=macros)
+            self.e = ttk.Combobox(top, values=list(macros.values()))
         self.e.pack(padx=5)
         
         b = ttk.Button(top, text=STRING_OK, command=self.ok)
@@ -275,16 +275,25 @@ class MyDialog:
         if len(item):
             logging.info( "value is %s", item )
             mode = master.get()
+            tg_name = tg = item
             lst = item.split(',')
             if len(lst) == 1:
-                connect((item, item))
-                if item.startswith('*') == False:
-                    talk_groups[mode].append((item, item))
+                if item in macros.values():
+                    i = list(macros.values()).index(item)
+                    tg = list(macros.keys())[i]
             else:
-                connect((lst[0].strip(), lst[1].strip()))
-                if item.startswith('*') == False:
-                    talk_groups[mode].append((lst[1].strip(), lst[0].strip()))
-            fillTalkgroupList(master.get())
+                tg_name = lst[0]
+                tg = lst[1]
+            connect((tg, tg_name))
+            if tg.startswith('*') == False:
+                i = None
+                for x in talk_groups[mode]:
+                    if x[1] == tg:
+                        i = x
+                if i == None: # tg not found?
+                    talk_groups[mode].append((tg_name, tg))
+                    fillTalkgroupList(master.get())
+                selectTGByValue(tg)
         self.top.destroy()
 
 ###################################################################################
@@ -450,7 +459,8 @@ def rxAudioStream():
                     elif (_json[0:6] == "MACRO:"):  # An ad-hoc macro menu
                         logging.info("Macro: " + _json[6:])
                         macs = _json[6:]
-                        macros = macs.split('|')
+                        macrosx = dict(x.split(",") for x in macs.split("|"))
+                        macros = { k:v.strip() for k, v in macrosx.items()}
                         ipc_queue.put(("macro", ""))    # popup the menu
                     else:
                         obj=json.loads(audio[5:audio.find(b'\x00')].decode('ASCII'))
@@ -464,6 +474,7 @@ def rxAudioStream():
                         connected_msg.set( STRING_CONNECTED_TO + " " + obj["last_tune"] )
                         selectTGByValue(obj["last_tune"])
                 else:
+                    # Tunnel a TLV inside of a USRP packet
                     if audio[0] == TLV_TAG_SET_INFO:
                         if transmit_enable == False:    #EOT missed?
                             log_end_of_transmission(call, rxslot, tg, loss, start_time)
@@ -1447,8 +1458,12 @@ try:
 
     talk_groups = {}
     for sect in config.sections():
-        if (sect != "DEFAULTS"):
+        if (sect != "DEFAULTS") and (sect != "MACROS"):
             talk_groups[sect] = config.items(sect)
+
+    if "MACROS" in config.sections():
+        for x in config.items("MACROS"):
+            macros[x[1]] = x[0]
 
     if validateConfigInfo() == False:
         logging.error(STRING_CONFIG_NOT_EDITED)
@@ -1462,8 +1477,8 @@ servers = sorted(talk_groups.keys())
 master = makeTkVar(StringVar, defaultServer, masterChanged)
 connected_msg = makeTkVar(StringVar, STRING_CONNECTED_TO)
 current_tx_value = makeTkVar(StringVar, my_call)
-current_call = makeTkVar(StringVar, "Call")
-current_name = makeTkVar(StringVar, "Name")
+current_call = makeTkVar(StringVar, "")
+current_name = makeTkVar(StringVar, "")
 
 setStyles()
 
