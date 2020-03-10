@@ -255,6 +255,9 @@ class MyDialog:
         win_offset = "250x100+{}+{}".format(root.winfo_x()+40, root.winfo_y()+65)
 
         top = self.top = Toplevel(parent)
+        self.top.transient(parent)
+        self.top.grab_set()
+
         top.geometry(win_offset)
         top.configure(bg=uc_background_color)
 
@@ -264,12 +267,20 @@ class MyDialog:
             self.e = Entry(top, fg=uc_text_color, bg=uc_background_color)
         else:
             self.e = ttk.Combobox(top, values=list(macros.values()))
+
+        self.e.bind("<Return>", self.ok)
+        self.e.bind("<Escape>", self.cancel)
+
         self.e.pack(padx=5)
         
         b = ttk.Button(top, text=STRING_OK, command=self.ok)
         b.pack(pady=5)
-    
-    def ok(self):
+        self.e.focus_set()
+
+    def cancel(self, event=None):
+        self.top.destroy()
+
+    def ok(self, event=None):
         
         item = self.e.get()
         if len(item):
@@ -395,6 +406,7 @@ def rxAudioStream():
     loss = '0.00%'
     rxslot = '0'
     state = None
+    
     while done == False:
         soundData, addr = udp.recvfrom(1024)
         if addr[0] != ip_address.get():
@@ -416,6 +428,8 @@ def rxAudioStream():
                     if RATE == 48000:
                         (audio48, state) = audioop.ratecv(audio, 2, 1, 8000, 48000, state)
                         stream.write(bytes(audio48), 160 * 6)
+                        rms = audioop.rms(audio, 2)     # Get a relative power value for the sample
+                        audio_level.set(int(rms/100))
                     else:
                         stream.write(audio, 160)
                 if (keyup != lastKey):
@@ -425,6 +439,7 @@ def rxAudioStream():
                     if keyup == False:
                         log_end_of_transmission(call, rxslot, tg, loss, start_time)
                         transmit_enable = True  # Idle state, allow local transmit
+                        audio_level.set(0)
                 lastKey = keyup
             elif (type == USRP_TYPE_TEXT): #metadata
                 if (audio[0:4] == REG):
@@ -603,9 +618,9 @@ def txAudioStream():
             else:
                 audio = stream.read(CHUNK, exception_on_overflow=False)
 
+            rms = audioop.rms(audio, 2)     # Get a relative power value for the sample
             ###### Vox processing #####
             if vox_enable.get():
-                rms = audioop.rms(audio, 2)     # Get a relative power value for the sample
                 if rms > vox_threshold.get():   # is it loud enough?
                     decay = vox_delay.get()     # Yes, reset the decay value (wont unkey for N samples)
                     if (ptt == False) and (transmit_enable == True):            # Are we changing ptt state to True?
@@ -627,6 +642,7 @@ def txAudioStream():
                 usrp = 'USRP'.encode('ASCII') + struct.pack('>iiiiiii',usrpSeq, 0, ptt, 0, USRP_TYPE_VOICE, 0, 0) + audio
                 udp.sendto(usrp, (ip_address.get(), usrp_tx_port))
                 usrpSeq = usrpSeq + 1
+                audio_level.set(int(rms/100))
         except:
             logging.warning("TX thread:" + str(sys.exc_info()[1]))
 
@@ -1030,12 +1046,14 @@ def showPTTState(flag):
     global tx_start_time
     if ptt:
         transmitButton.configure(highlightbackground='red')
+        ttk.Style(root).configure("bar.Horizontal.TProgressbar", troughcolor=uc_background_color, bordercolor=uc_text_color, background="red", lightcolor="red", darkcolor="red")
         tx_start_time = time()
         current_tx_value.set('{} -> {}'.format(my_call, getCurrentTG()))
         html_queue.put((my_call, ""))     # Show my own pic when I transmit
         logging.info("PTT ON")
     else:
         transmitButton.configure(highlightbackground=uc_background_color)
+        ttk.Style(root).configure("bar.Horizontal.TProgressbar", troughcolor=uc_background_color, bordercolor=uc_text_color, background="green", lightcolor="green", darkcolor="green")
         if flag == 1:
             _date = strftime("%m/%d/%y", localtime(time()))
             _time = strftime("%H:%M:%S", localtime(time()))
@@ -1199,9 +1217,15 @@ def makeLogFrame( parent ):
 def makeTransmitFrame(parent):
     global transmitButton
     transmitFrame = Frame(parent, pady = 5, padx = 5, bg = uc_background_color, bd = 1)
-    transmitButton = Button(transmitFrame, text=STRING_TRANSMIT, command=transmit, width = 40, state='disabled')
+    transmitButton = Button(transmitFrame, text=STRING_TRANSMIT, command=transmit, width = 40, font='Helvetica 18 bold', state='disabled')
     transmitButton.grid(column=1, row=1, sticky=W)
     transmitButton.configure(highlightbackground=uc_background_color)
+
+
+    #ttk.Scale(transmitFrame, from_=0, to=100, orient=HORIZONTAL, variable=audio_level,).grid(column=1, row=2, sticky=(W,E), pady=1)
+
+    ttk.Progressbar(transmitFrame, style="bar.Horizontal.TProgressbar", orient=HORIZONTAL, variable=audio_level).grid(column=1, row=2, sticky=(W,E), pady=1)
+
 
     return transmitFrame
 
@@ -1375,6 +1399,7 @@ def setStyles():
     style.configure("Treeview", background=uc_background_color, fieldbackground=uc_background_color, foreground=uc_text_color)
     style.configure('TNotebook.Tab', foreground=uc_text_color, background=uc_background_color)
     style.configure('TButton', foreground=uc_text_color, background=uc_background_color)
+    style.configure("bar.Horizontal.TProgressbar", troughcolor=uc_background_color, bordercolor=uc_text_color, background="green", lightcolor="green", darkcolor="green")
 
 ###################################################################################
 # Read an int value from the ini file.  If an error or value is Default, return the 
@@ -1479,6 +1504,7 @@ connected_msg = makeTkVar(StringVar, STRING_CONNECTED_TO)
 current_tx_value = makeTkVar(StringVar, my_call)
 current_call = makeTkVar(StringVar, "")
 current_name = makeTkVar(StringVar, "")
+audio_level = makeTkVar(IntVar, 0)
 
 setStyles()
 
