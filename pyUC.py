@@ -200,7 +200,7 @@ def getImgUrl( callsign ):
         quote_page = 'https://qrz.com/lookup/' + callsign
 
         # query the website and return the html to the variable ‘page’
-        page = urlopen(quote_page).read()
+        page = urlopen(quote_page, timeout=20).read()
 
         # parse the html using beautiful soup and store in variable `soup`
         soup = BeautifulSoup(page, 'html.parser')
@@ -305,6 +305,7 @@ class MyDialog:
                     talk_groups[mode].append((tg_name, tg))
                     fillTalkgroupList(master.get())
                 selectTGByValue(tg)
+                listbox.see(listbox.curselection())
         self.top.destroy()
 
 ###################################################################################
@@ -1209,6 +1210,7 @@ def makeLogFrame( parent ):
         logList.heading(item, text=item)
         i += 1
 
+    setup_rightmouse_menu(root, logList)
     return logFrame
 
 ###################################################################################
@@ -1437,6 +1439,59 @@ def on_closing():
         sleep(1)            # wait just a moment for them to die
         unregisterWithAB()
     root.destroy()
+
+############################################################################################################
+#
+############################################################################################################
+def get_rt_menu_call():
+    iid = logList.selection()
+    call = logList.item(iid)['values'][2].strip()
+    is_valid = False
+    if len(call) > 0:
+        if call.isdigit() == False:
+            is_valid = True
+    return (is_valid, call)
+
+def lookup_call_on_web( service, url):
+    is_valid, call = get_rt_menu_call()
+    if is_valid == True:
+        logging.info("Lookup call " + call + " on service " + service)
+        webbrowser.open_new_tab(url+call)
+
+def menu1():
+    lookup_call_on_web( "QRZ", "http://www.qrz.com/lookup/")
+    pass
+def menu2():
+    lookup_call_on_web( "aprs.fi", "https://aprs.fi/#!call=a%2F")
+    pass
+def menu3():
+    lookup_call_on_web( "Brandmeister", "https://brandmeister.network/index.php?page=profile&call=")
+    pass
+def menu4():
+    lookup_call_on_web( "Hamdata.com", "http://hamdata.com/getcall.html?callsign=")
+    pass
+def menu5():
+    pass
+
+def setup_rightmouse_menu(master, tree):
+    tree.aMenu = Menu(master, tearoff=0)
+    tree.aMenu.add_command(label='QRZ', command=menu1)
+    tree.aMenu.add_command(label='aprs.fi', command=menu2)
+    tree.aMenu.add_command(label='Brandmeister', command=menu3)
+    tree.aMenu.add_command(label='Hamdata lookup', command=menu4)
+    tree.aMenu.add_command(label='Private Call', command=menu5)
+
+    # attach popup to treeview widget
+    tree.bind("<Button-2>", popup)
+
+def popup(event):
+    iid = logList.identify_row(event.y)
+    if iid:
+        # mouse pointer over item
+        logList.selection_set(iid)
+        logList.aMenu.post(event.x_root, event.y_root)            
+    else:
+        pass
 
 ############################################################################################################
 # Global commands
