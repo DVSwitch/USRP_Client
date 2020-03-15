@@ -1483,6 +1483,8 @@ def setup_rightmouse_menu(master, tree):
 
     # attach popup to treeview widget
     tree.bind("<Button-2>", popup)
+    tree.bind("<Button-3>", popup)
+    tree.aMenu.bind("<FocusOut>",popupFocusOut)
 
 def popup(event):
     iid = logList.identify_row(event.y)
@@ -1490,8 +1492,11 @@ def popup(event):
         # mouse pointer over item
         logList.selection_set(iid)
         logList.aMenu.post(event.x_root, event.y_root)            
+        logList.aMenu.focus_set()
     else:
         pass
+def popupFocusOut(self,event=None):
+        logList.aMenu.unpost()
 
 ############################################################################################################
 # Global commands
