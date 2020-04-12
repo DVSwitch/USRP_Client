@@ -96,6 +96,7 @@ tx_start_time = 0                   # TX timer
 done = False                        # Thread stop flag
 transmit_enable = True              # Make sure that UC is half duplex
 useQRZ = True
+level_every_sample = 1
 
 listbox = None                      # tk object (talkgroup)
 transmitButton = None               # tk object
@@ -382,7 +383,7 @@ def rxAudioStream():
     EXITING = bytes("EXITING", 'ASCII')
 
     FORMAT = pyaudio.paInt16
-    CHUNK = 160
+    CHUNK = 160 if SAMPLE_RATE == 8000 else (160*6)     # Size of chunk to read
     CHANNELS = 1
     RATE = SAMPLE_RATE
     
@@ -433,11 +434,12 @@ def rxAudioStream():
                 if (len(audio) == 320):
                     if RATE == 48000:
                         (audio48, state) = audioop.ratecv(audio, 2, 1, 8000, 48000, state)
-                        stream.write(bytes(audio48), 160 * 6)
-                        rms = audioop.rms(audio, 2)     # Get a relative power value for the sample
-                        audio_level.set(int(rms/100))
+                        stream.write(bytes(audio48), CHUNK)
+                        if (seq % level_every_sample) == 0:
+                            rms = audioop.rms(audio, 2)     # Get a relative power value for the sample
+                            audio_level.set(int(rms/100))
                     else:
-                        stream.write(audio, 160)
+                        stream.write(audio, CHUNK)
                 if (keyup != lastKey):
                     logging.debug('key' if keyup else 'unkey')
                     if keyup:
@@ -1545,6 +1547,7 @@ try:
     defaultServer = config.get('DEFAULTS', "defaultServer").split(None)[0]
     asl_mode = makeTkVar(IntVar, config.get('DEFAULTS', "aslMode").split(None)[0])
     useQRZ = bool(readValue(config, 'DEFAULTS', 'useQRZ', True, int))
+    level_every_sample = int(readValue(config, 'DEFAULTS', 'levelEverySample', 2, int))
 
     in_index = readValue(config, 'DEFAULTS', 'in_index', None, int)
     out_index = readValue(config, 'DEFAULTS', 'out_index', None, int)
