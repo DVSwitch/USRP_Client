@@ -324,7 +324,8 @@ def openStream():
     except:
         logging.info(STRING_WINDOWS_PORT_REUSE)
         pass
-    udp.bind(('', usrp_rx_port))
+    if (usrp_rx_port in usrp_tx_port) == False:    # single  port reply does not need a bind
+        udp.bind(('', usrp_rx_port))
 
 def sendto(usrp):
     for port in usrp_tx_port:
