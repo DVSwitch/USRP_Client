@@ -616,8 +616,9 @@ def txAudioStream():
                         )
     except:
         logging.critical(STRING_FATAL_INPUT_STREAM + str(sys.exc_info()[1]))
-        messagebox.showinfo(STRING_USRP_CLIENT, STRING_INPUT_STREAM_ERROR)
-        os._exit(1)
+        transmit_enable = False
+        ipc_queue.put(("dialog", "Text Message", STRING_INPUT_STREAM_ERROR))
+        return
 
     _i = p.get_default_output_device_info().get('index') if in_index == None else in_index
     logging.info("Input Device: {} Index: {}".format(p.get_device_info_by_host_api_device_index(0, _i).get('name'), _i))
@@ -968,6 +969,8 @@ def process_queue():
             showQRZImage(msg, qrz_label) 
         if msg[0] == "macro":
             tgDialog();       
+        if msg[0] == "dialog":
+            messagebox.showinfo(STRING_USRP_CLIENT, msg[2], parent=root)
     except queue.Empty:
         pass
     root.after(100, process_queue)
