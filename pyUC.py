@@ -97,6 +97,7 @@ tx_start_time = 0                   # TX timer
 done = False                        # Thread stop flag
 transmit_enable = True              # Make sure that UC is half duplex
 useQRZ = True
+level_every_sample = 1
 
 listbox = None                      # tk object (talkgroup)
 transmitButton = None               # tk object
@@ -326,7 +327,8 @@ def openStream():
     except:
         logging.info(STRING_WINDOWS_PORT_REUSE)
         pass
-    udp.bind(('', usrp_rx_port))
+    if (usrp_rx_port in usrp_tx_port) == False:    # single  port reply does not need a bind
+        udp.bind(('', usrp_rx_port))
 
 def sendto(usrp):
     for port in usrp_tx_port:
@@ -430,7 +432,7 @@ def rxAudioStream():
     EXITING = bytes("EXITING", 'ASCII')
 
     FORMAT = pyaudio.paInt16
-    CHUNK = 160
+    CHUNK = 160 if SAMPLE_RATE == 8000 else (160*6)     # Size of chunk to read
     CHANNELS = 1
     RATE = SAMPLE_RATE
     
@@ -486,11 +488,9 @@ def rxAudioStream():
                 if (len(audio) == 320):
                     if RATE == 48000:
                         (audio48, state) = audioop.ratecv(audio, 2, 1, 8000, 48000, state)
-                        stream.write(bytes(audio48), 160 * 6)
-#                        rms = audioop.rms(audio, 2)     # Get a relative power value for the sample
-#                        audio_level.set(int(rms/100))
+                        stream.write(bytes(audio48), CHUNK)
                     else:
-                        stream.write(audio, 160)
+                        stream.write(audio, CHUNK)
                 if (keyup != lastKey):
                     logging.debug('key' if keyup else 'unkey')
                     if keyup:
@@ -670,8 +670,9 @@ def txAudioStream():
                         )
     except:
         logging.critical(STRING_FATAL_INPUT_STREAM + str(sys.exc_info()[1]))
-        messagebox.showinfo(STRING_USRP_CLIENT, STRING_INPUT_STREAM_ERROR)
-        os._exit(1)
+        transmit_enable = False
+        ipc_queue.put(("dialog", "Text Message", STRING_INPUT_STREAM_ERROR))
+        return
 
     _i = p.get_default_output_device_info().get('index') if in_index == None else in_index
     logging.info("Input Device: {} Index: {}".format(p.get_device_info_by_host_api_device_index(0, _i).get('name'), _i))
@@ -1022,6 +1023,8 @@ def process_queue():
             showQRZImage(msg, qrz_label) 
         if msg[0] == "macro":
             tgDialog();       
+        if msg[0] == "dialog":
+            messagebox.showinfo(STRING_USRP_CLIENT, msg[2], parent=root)
     except queue.Empty:
         pass
     root.after(100, process_queue)
@@ -1608,6 +1611,7 @@ try:
     defaultServer = config.get('DEFAULTS', "defaultServer").split(None)[0]
     asl_mode = makeTkVar(IntVar, config.get('DEFAULTS', "aslMode").split(None)[0])
     useQRZ = bool(readValue(config, 'DEFAULTS', 'useQRZ', True, int))
+    level_every_sample = int(readValue(config, 'DEFAULTS', 'levelEverySample', 2, int))
 
     in_index = readValue(config, 'DEFAULTS', 'in_index', None, int)
     out_index = readValue(config, 'DEFAULTS', 'out_index', None, int)
