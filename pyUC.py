@@ -20,7 +20,7 @@
 
 from tkinter import *
 from tkinter import ttk
-from time import time, sleep, clock, localtime, strftime
+from time import time, sleep, localtime, strftime
 from random import randint
 from tkinter import messagebox
 import socket
@@ -42,7 +42,7 @@ from pathlib import Path
 import hashlib
 from tkinter import font
 
-UC_VERSION = "1.2.1"
+UC_VERSION = "1.2.2"
 
 ###################################################################################
 # Declare input and output ports for communication with AB
@@ -278,6 +278,10 @@ class MyDialog:
         b = ttk.Button(top, text=STRING_OK, command=self.ok)
         b.pack(pady=5)
         self.e.focus_set()
+
+    def popdown(self, popdown_state):
+        if ((popdown_state != None) and (popdown_state == True)):
+            self.e.event_generate('<Button-1>')
 
     def cancel(self, event=None):
         self.top.destroy()
@@ -968,7 +972,7 @@ def process_queue():
         if msg[0] == "photo":    # an image is just a string containing the call to display
             showQRZImage(msg, qrz_label) 
         if msg[0] == "macro":
-            tgDialog();       
+            tgDialog(True)       
         if msg[0] == "dialog":
             messagebox.showinfo(STRING_USRP_CLIENT, msg[2], parent=root)
     except queue.Empty:
@@ -1125,8 +1129,9 @@ def whiteLabel(parent, textVal):
 ###################################################################################
 # Popup the Talkgroup dialog.  This dialog lets the user enter a custom TG into the list
 ###################################################################################
-def tgDialog():
+def tgDialog(popdown_state):
     d = MyDialog(root)
+    d.popdown(popdown_state)
     root.wait_window(d.top)
 
 ###################################################################################
@@ -1200,7 +1205,7 @@ def makeGroupFrame( parent ):
     listbox.config(yscrollcommand=scrollbar.set)
 
     fillTalkgroupList(defaultServer)
-    ttk.Button(dmrFrame, text=STRING_TG, command=tgDialog, width = 3).grid(column=1, row=3, sticky=W)
+    ttk.Button(dmrFrame, text=STRING_TG, command= lambda: tgDialog(False), width = 3).grid(column=1, row=3, sticky=W)
     ttk.Button(dmrFrame, text=STRING_CONNECT, command= lambda: connect(None)).grid(column=2, row=3, sticky=W)
     ttk.Button(dmrFrame, text=STRING_DISCONNECT, command=disconnectButton).grid(column=3, row=3, sticky=W)
     return dmrFrame
