@@ -1306,6 +1306,7 @@ def makeModeSettingsFrame( parent ):
     w.grid(column=2, row=1, sticky=W, padx = 5, pady = ypad)
     w.config(fg=uc_text_color, bg=uc_background_color)
     w["menu"].config(fg=uc_text_color)
+    w["menu"].config(bg=uc_background_color)
 
     whiteLabel(dmrgroup, STRING_REPEATER_ID).grid(column=1, row=2, sticky=W, padx = 5, pady = ypad)
     Entry(dmrgroup, width = 20, bg = uc_background_color, fg=uc_text_color, textvariable = repeater_id).grid(column=2, row=2, pady = ypad)
@@ -1421,6 +1422,7 @@ def setStyles():
     style.theme_use("clam")
     style.configure("Treeview", background=uc_background_color, fieldbackground=uc_background_color, foreground=uc_text_color)
     style.configure('TNotebook.Tab', foreground=uc_text_color, background=uc_background_color)
+    style.map('TNotebook.Tab', background=[('disabled', 'magenta')])
     style.configure('TButton', foreground=uc_text_color, background=uc_background_color)
     style.configure("bar.Horizontal.TProgressbar", troughcolor=uc_background_color, bordercolor=uc_text_color, background="green", lightcolor="green", darkcolor="green")
 
