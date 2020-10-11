@@ -41,6 +41,7 @@ import queue
 from pathlib import Path
 import hashlib
 from tkinter import font
+import numpy as np
 
 UC_VERSION = "1.2.2"
 
@@ -161,7 +162,9 @@ STRING_LOOPBACK = "Loopback"
 STRING_IP_ADDRESS = "IP Address"
 STRING_PRIVATE = "Private"
 STRING_GROUP = "Group"
-STRING_TRANSMIT = "Transmit"
+STRING_TRANSMIT = "PTT"
+STRING_TRANSMITTING = "Transmitting"
+STRING_RECEIVING = "Receiving"
 
 ###################################################################################
 # HTML/QRZ import libraries
@@ -361,6 +364,7 @@ def noalsaerr():
 ###################################################################################
 def log_end_of_transmission(call,rxslot,tg,loss,start_time):
     logging.info('End TX:   {} {} {} {} {:.2f}s'.format(call, rxslot, tg, loss, time() - start_time))
+    rogerBeep()
     logList.see(logList.insert('', 'end', None, values=(
         strftime(" %m/%d/%y", localtime(start_time)),
         strftime("%H:%M:%S", localtime(start_time)),
@@ -369,6 +373,50 @@ def log_end_of_transmission(call,rxslot,tg,loss,start_time):
     current_tx_value.set(my_call)
     html_queue.put(("", ""))  # clear the photo, use queue for short transmissions
 
+
+###################################################################################
+# create a little roger beep
+###################################################################################
+def rogerBeep():
+    volume = 0.01  # range [0.0, 1.0]
+    fs = 44100  # sampling rate, Hz, must be integer
+    duration = 0.5  # in seconds, may be float
+    f = 880.0  # sine frequency, Hz, may be float
+
+    # generate samples, note conversion to float32 array
+    samples = (np.sin(2 * np.pi * np.arange(fs * duration) * f / fs)).astype(np.float32)
+
+    # for paFloat32 sample values must be in range [-1.0, 1.0]
+    stream = p.open(format=pyaudio.paFloat32,
+                    channels=1,
+                    rate=fs,
+                    output=True)
+    _i = p.get_default_output_device_info().get('index') if out_index == None else out_index
+
+    stream.write(volume * samples)
+
+    stream.stop_stream()
+    stream.close()
+
+def autoLevelAudio(audio):
+    #beforelevel = audioop.rms(audio, 2)
+    #if beforelevel > 5:
+    return audioop.mul(audioop.bias(audio, 2, 10000 - audioop.rms(audio, 2)), 2, sp_vol.get() / 10)
+    #logging.info("Audiolevels before: {} after: {} ".format(beforelevel, audioop.rms(audio, 2)))
+    #return audio
+
+'''
+    targetlevel = sp_vol.get()
+    maxlevel = audioop.max(audio, 2)
+    if maxlevel == 0:
+        return audio
+    else:
+        if maxlevel < targetlevel:
+            retval = audioop.bias(audio, 2, targetlevel - maxlevel)
+        else:
+            retval = audio
+        return retval
+'''
 ###################################################################################
 # RX thread, collect audio and metadata from AB
 ###################################################################################
@@ -435,14 +483,16 @@ def rxAudioStream():
             audio = soundData[32:]
             if (type == USRP_TYPE_VOICE): # voice
                 audio = soundData[32:]
+                #beforelevel = audioop.rms(audio, 2)
+                audio = audioop.mul(audio, 2, sp_vol.get()/5)
+                #logging.info("Audiolevels before: {} after: {} ".format(beforelevel, audioop.rms(audio, 2)))
+                audio_level.set(int(audioop.rms(audio, 2) / 100))
+                #audio = autoLevelAudio(audio)
                 #print(eye, seq, memory, keyup, talkgroup, type, mpxid, reserved, audio, len(audio), len(soundData))
                 if (len(audio) == 320):
                     if RATE == 48000:
                         (audio48, state) = audioop.ratecv(audio, 2, 1, 8000, 48000, state)
                         stream.write(bytes(audio48), CHUNK)
-                        if (seq % level_every_sample) == 0:
-                            rms = audioop.rms(audio, 2)     # Get a relative power value for the sample
-                            audio_level.set(int(rms/100))
                     else:
                         stream.write(audio, CHUNK)
                 if (keyup != lastKey):
@@ -453,6 +503,7 @@ def rxAudioStream():
                         log_end_of_transmission(call, rxslot, tg, loss, start_time)
                         transmit_enable = True  # Idle state, allow local transmit
                         audio_level.set(0)
+                        transmitButton.configure(background=uc_background_color, text=STRING_TRANSMIT)
                 lastKey = keyup
             elif (type == USRP_TYPE_TEXT): #metadata
                 if (audio[0:4] == REG):
@@ -536,6 +587,8 @@ def rxAudioStream():
                         current_tx_value.set('{} -> {}'.format(call, tg))
                         logging.info('Begin TX: {} {} {} {}'.format(call, rxslot, tg, mode))
                         transmit_enable = False # Transmission from network will disable local transmit
+                        transmitButton.configure(background='green', text=STRING_RECEIVING)
+
                         if call.isdigit() == False:
                             html_queue.put((call, name))
                         if ((rxcc  & 0x80) and (rid > 10000)): # > 10000 to exclude "4000" from BM
@@ -555,6 +608,7 @@ def rxAudioStream():
                         logging.info("missed EOT")
                         log_end_of_transmission(call, rxslot, tg, loss, start_time)
                         transmit_enable = True  # Idle state, allow local transmit
+                        transmitButton.configure(background=uc_background_color, text=STRING_TRANSMIT)
                     lastSeq = seq
 #                logging.debug(audio[:audio.find('\x00')])
                 pass
@@ -1066,14 +1120,18 @@ def transmit():
 def showPTTState(flag):
     global tx_start_time
     if ptt:
-        transmitButton.configure(highlightbackground='red')
+#        transmitButton.configure(highlightbackground='red')
+        transmitButton.configure(background='red', text=STRING_TRANSMITTING)
+
+
         ttk.Style(root).configure("bar.Horizontal.TProgressbar", troughcolor=uc_background_color, bordercolor=uc_text_color, background="red", lightcolor="red", darkcolor="red")
         tx_start_time = time()
         current_tx_value.set('{} -> {}'.format(my_call, getCurrentTG()))
         html_queue.put((my_call, ""))     # Show my own pic when I transmit
         logging.info("PTT ON")
     else:
-        transmitButton.configure(highlightbackground=uc_background_color)
+#        transmitButton.configure(highlightbackground=uc_background_color)
+        transmitButton.configure(background=uc_background_color, text=STRING_TRANSMIT)
         ttk.Style(root).configure("bar.Horizontal.TProgressbar", troughcolor=uc_background_color, bordercolor=uc_text_color, background="green", lightcolor="green", darkcolor="green")
         if flag == 1:
             _date = strftime("%m/%d/%y", localtime(time()))
@@ -1242,7 +1300,8 @@ def makeTransmitFrame(parent):
     transmitFrame = Frame(parent, pady = 5, padx = 5, bg = uc_background_color, bd = 1)
     transmitButton = Button(transmitFrame, text=STRING_TRANSMIT, command=transmit, width = 40, font='Helvetica 18 bold', state='disabled')
     transmitButton.grid(column=1, row=1, sticky=W)
-    transmitButton.configure(highlightbackground=uc_background_color)
+#    transmitButton.configure(highlightbackground=uc_background_color)
+    transmitButton.configure(background=uc_background_color)
 
 
     #ttk.Scale(transmitFrame, from_=0, to=100, orient=HORIZONTAL, variable=audio_level,).grid(column=1, row=2, sticky=(W,E), pady=1)
@@ -1303,6 +1362,7 @@ def makeModeSettingsFrame( parent ):
     dmrgroup = LabelFrame(parent, text=STRING_MODE, padx=5, pady=ypad, fg=uc_text_color, bg = uc_background_color, relief = SUNKEN)
     whiteLabel(dmrgroup, "Mode").grid(column=1, row=1, sticky=W, padx = 5, pady = ypad)
     w = OptionMenu(dmrgroup, master, *servers)
+    w["menu"].config(bg="GREY")
     w.grid(column=2, row=1, sticky=W, padx = 5, pady = ypad)
     w.config(fg=uc_text_color, bg=uc_background_color)
     w["menu"].config(fg=uc_text_color)
