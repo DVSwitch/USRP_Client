@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 ###################################################################################
 # pyUC ("puck")
 # Copyright (C) 2014, 2015, 2016, 2019, 2020 N4IRR
@@ -97,6 +97,7 @@ done = False                        # Thread stop flag
 transmit_enable = True              # Make sure that UC is half duplex
 useQRZ = True
 level_every_sample = 1
+NAT_ping_timer = 0
 
 listbox = None                      # tk object (talkgroup)
 transmitButton = None               # tk object
@@ -240,7 +241,10 @@ def showQRZImage( msg, in_label ):
     current_name.set(msg[3])
 
 ###################################################################################
-
+def ping_thread():
+    while done == False:
+        sleep(20.0)
+        sendUSRPCommand(bytes("PING", 'ASCII'), USRP_TYPE_PING)
 
 ###################################################################################
 # Log output to console
@@ -943,6 +947,8 @@ def disconnect():
 ###################################################################################
 def popup_toast(msg):
     global toast_frame
+    if toast_frame != None: # If a toast is still on the screen, kill it first
+        toast_frame.destroy()
     toast_frame = Toplevel()
     toast_frame.wm_title(msg[1])
     toast_frame.overrideredirect(1)
@@ -956,13 +962,16 @@ def popup_toast(msg):
     toast_frame.after(2000, toast_fade_away)
 
 def toast_fade_away():
-    alpha = toast_frame.attributes("-alpha")
-    if alpha > 0:
-        alpha -= .1
-        toast_frame.attributes("-alpha", alpha)
-        toast_frame.after(100, toast_fade_away)
-    else:
-        toast_frame.destroy()
+    global toast_frame
+    if toast_frame != None:
+        alpha = toast_frame.attributes("-alpha")
+        if alpha > 0:
+            alpha -= .1
+            toast_frame.attributes("-alpha", alpha)
+            toast_frame.after(100, toast_fade_away)
+        else:
+            toast_frame.destroy()
+            toast_frame = None
  
 def process_queue():
     try:
@@ -1559,6 +1568,7 @@ try:
     asl_mode = makeTkVar(IntVar, config.get('DEFAULTS', "aslMode").split(None)[0])
     useQRZ = bool(readValue(config, 'DEFAULTS', 'useQRZ', True, int))
     level_every_sample = int(readValue(config, 'DEFAULTS', 'levelEverySample', 2, int))
+    NAT_ping_timer = int(readValue(config, 'DEFAULTS', 'pingTimer', 0, int))
 
     in_index = readValue(config, 'DEFAULTS', 'in_index', None, int)
     out_index = readValue(config, 'DEFAULTS', 'out_index', None, int)
@@ -1611,6 +1621,8 @@ _thread.start_new_thread( rxAudioStream, () )
 if in_index != -1:  # Do not launch the TX thread if the user wants RX only access
     _thread.start_new_thread( txAudioStream, () )
 _thread.start_new_thread( html_thread, () )     # Start up the HTML thread for background image loads
+if NAT_ping_timer > 0:
+    _thread.start_new_thread( ping_thread, () )
 
 disconnect()    # Start out in the disconnected state
 start()         # Begin the handshake with AB (register)
