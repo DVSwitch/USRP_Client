@@ -691,7 +691,8 @@ def listAudioDevices(want_input):
     numdevices = info.get('deviceCount')
     for i in range(0, numdevices):
         is_input = p.get_device_info_by_host_api_device_index(0, i).get('maxInputChannels') > 0
-        if (is_input and want_input) or (want_input == False and is_input == False):
+        is_output = p.get_device_info_by_host_api_device_index(0, i).get('maxOutputChannels') > 0
+        if (is_input and want_input) or (want_input == False and is_output):
             devices.append(p.get_device_info_by_host_api_device_index(0, i).get('name'))
             logging.info("Device id {} - {}".format(i, p.get_device_info_by_host_api_device_index(0, i).get('name')))
     return devices
