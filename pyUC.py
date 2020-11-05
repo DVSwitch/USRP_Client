@@ -41,8 +41,9 @@ import queue
 from pathlib import Path
 import hashlib
 from tkinter import font
+import sys
 
-UC_VERSION = "1.2.2"
+UC_VERSION = "1.2.3"
 
 ###################################################################################
 # Declare input and output ports for communication with AB
