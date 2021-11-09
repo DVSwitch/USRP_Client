@@ -2,7 +2,7 @@
 # USRP_Client (pyUC)
 
 ## Introduction
-The pyUC python application is a GUI front end for accessing ham radio digital networks from your PC.  It is the front end app for the DVSwitch suite of software and connects to the Analog_Bridge component.
+The pyUC python application is a GUI front end for accessing ham radio digital networks from your PC.  It is the front end app for the DVSwitch suite of software and connects to the MMDVM_Bridge component.
 ## Features
 The user can:
 
